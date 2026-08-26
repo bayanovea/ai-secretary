@@ -479,13 +479,13 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 
 ### Task 13: Verify acceptance criteria
 
-- [ ] verify all requirements from Overview are implemented: 3 tiers, `от:`, deadlines, sections, labels, advance-start nudging, grouping, free-text intake, Alfred persona
-- [ ] verify edge cases: task with no deadline, no effort, unknown section, duplicate ids, empty artifact, artifact with only done tasks
-- [ ] verify hand-editing safety: manually edit `docs/duties.md`, run `secretary fmt`, confirm no data loss
-- [ ] run full test suite: `go test ./...`
-- [ ] run `go vet ./...`
-- [ ] no e2e suite exists for this project (no UI) — confirmed intentionally out of scope
-- [ ] verify coverage of the logic packages is ≥80%: `go test ./internal/... -cover`
+- [x] verify all requirements from Overview are implemented: 3 tiers, `от:`, deadlines, sections, labels, advance-start nudging, grouping, free-text intake, Alfred persona (⚠️ encoded as `TestAcceptanceOverviewRequirements` in `cmd/secretary/acceptance_test.go`, one subtest per capability, driven through the built binary)
+- [x] verify edge cases: task with no deadline, no effort, unknown section, duplicate ids, empty artifact, artifact with only done tasks (`TestAcceptanceEdgeCases`)
+- [x] verify hand-editing safety: manually edit `docs/duties.md`, run `secretary fmt`, confirm no data loss (⚠️ done by hand on the real artifact and then encoded as `TestAcceptanceHandEditingIsSafe`. Finding: `fmt` drops exactly two things — hand-copied glyph hint lines, which are regenerated per date by design, and unrecognised field keys. The README claimed everything unparsed survived verbatim; corrected in the «Правка руками» section)
+- [x] run full test suite: `go test ./...`
+- [x] run `go vet ./...`
+- [x] no e2e suite exists for this project (no UI) — confirmed intentionally out of scope
+- [x] verify coverage of the logic packages is ≥80%: `go test ./internal/... -cover` (⚠️ actual: brief 91.3%, config 100%, grouping 98.7%, mdstore 92.2%, schedule 94.4%, task 100%, voice 100%)
 
 ### Task 14: [Final] Update documentation
 

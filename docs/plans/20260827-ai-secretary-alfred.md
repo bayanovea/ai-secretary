@@ -289,14 +289,14 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/task/task_test.go`
 - Create: `internal/task/effort_test.go`
 
-- [ ] define `Task` struct: `ID, Title, Section, Tier, From, Due *time.Time, Effort Effort, Context, Labels []string, Notes []string, Deferrals int, Created time.Time, Done bool, CompletedAt *time.Time`
-- [ ] define `Status` enum (`StatusOverdue`, `StatusStartNow`, `StatusSoon`, `StatusCalm`, `StatusNoDue`) with `String()` returning the Russian label
-- [ ] implement `Effort` as a duration-in-days value with `ParseEffort(s string) (Effort, error)` handling `Nч`/`Nд`/`Nн` (hours→fraction of a day, weeks→7 days) and `Effort.String()` round-tripping back
-- [ ] implement `Task.Validate() error` — id format, tier in 1..3, non-empty title and `от`
-- [ ] write table-driven tests for `ParseEffort` (all three units, decimals, zero, negative→error, garbage→error, empty→error)
-- [ ] write tests for `Effort.String()` round-trip against `ParseEffort`
-- [ ] write tests for `Validate` (valid case + each individual failure)
-- [ ] run `go test ./...` - must pass before task 3
+- [x] define `Task` struct: `ID, Title, Section, Tier, From, Due *time.Time, Effort Effort, Context, Labels []string, Notes []string, Deferrals int, Created time.Time, Done bool, CompletedAt *time.Time`
+- [x] define `Status` enum (`StatusOverdue`, `StatusStartNow`, `StatusSoon`, `StatusCalm`, `StatusNoDue`) with `String()` returning the Russian label
+- [x] implement `Effort` as a duration-in-days value with `ParseEffort(s string) (Effort, error)` handling `Nч`/`Nд`/`Nн` (hours→fraction of a day, weeks→7 days) and `Effort.String()` round-tripping back
+- [x] implement `Task.Validate() error` — id format, tier in 1..3, non-empty title and `от`
+- [x] write table-driven tests for `ParseEffort` (all three units, decimals, zero, negative→error, garbage→error, empty→error)
+- [x] write tests for `Effort.String()` round-trip against `ParseEffort`
+- [x] write tests for `Validate` (valid case + each individual failure)
+- [x] run `go test ./...` - must pass before task 3
 
 ### Task 3: Markdown parser
 

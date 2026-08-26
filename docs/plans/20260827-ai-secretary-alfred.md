@@ -357,16 +357,16 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/mdstore/store.go`
 - Create: `internal/mdstore/store_test.go`
 
-- [ ] implement `Store` wrapping a file path + config, with `Load() (*Document, error)` and `Save(*Document, now) error` (write to temp file, then atomic rename)
-- [ ] implement `Document.Add(t task.Task) (string, error)` assigning the next free `T-NNN` id and placing the task in its section (creating the section if it is new but listed in config; error if not in config)
-- [ ] implement `Document.Done(id string, now time.Time) error` — move to `## Сделано`, set `выполнено:`
-- [ ] implement `Document.Defer(id string, newDue time.Time) error` — set new deadline, increment `переносов`, error if the new date is not later than the old one
-- [ ] implement `Document.Sort(now, cfg)` applying the sort order from Technical Details
-- [ ] write tests for `Add` (id allocation including gaps and an empty document, unknown section error)
-- [ ] write tests for `Done` and `Defer` (success, unknown id, deferring to an earlier date)
-- [ ] write a test for `Sort` determinism and correct ordering across tiers/statuses
-- [ ] write a test that `Save` then `Load` yields an equal document
-- [ ] run `go test ./...` - must pass before task 7
+- [x] implement `Store` wrapping a file path + config, with `Load() (*Document, error)` and `Save(*Document, now) error` (write to temp file, then atomic rename)
+- [x] implement `Document.Add(t task.Task, cfg *config.Config) (string, error)` (⚠️ takes `cfg`, like `Sort`: the section check needs it and a `Document` comes out of `Parse`, which has no config to store) assigning the next free `T-NNN` id (⚠️ gaps are not reused — an archived id must not come back pointing at a different duty) and placing the task in its section (creating the section if it is new but listed in config; error if not in config)
+- [x] implement `Document.Done(id string, now time.Time) error` — move to `## Сделано`, set `выполнено:`
+- [x] implement `Document.Defer(id string, newDue time.Time) error` — set new deadline, increment `переносов`, error if the new date is not later than the old one (⚠️ a task that had no deadline gets one without incrementing: nothing was postponed)
+- [x] implement `Document.Sort(now, cfg)` applying the sort order from Technical Details
+- [x] write tests for `Add` (id allocation including gaps and an empty document, unknown section error)
+- [x] write tests for `Done` and `Defer` (success, unknown id, deferring to an earlier date)
+- [x] write a test for `Sort` determinism and correct ordering across tiers/statuses
+- [x] write a test that `Save` then `Load` yields an equal document
+- [x] run `go test ./...` - must pass before task 7
 
 ### Task 7: Grouping — "do these together"
 

@@ -3,12 +3,12 @@ package mdstore
 import (
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bayanovea/secretary/internal/config"
+	"github.com/bayanovea/secretary/internal/schedule"
 	"github.com/bayanovea/secretary/internal/task"
 )
 
@@ -130,39 +130,39 @@ func fieldList(t task.Task) []string {
 	return fields
 }
 
-// hintLine is the generated «начать не позже» line.
+// hintLine is the generated status line: the one part of the artifact that is
+// recomputed on every write rather than read back. Parse throws these lines
+// away, so their wording can change freely.
 //
-// It is a placeholder for the schedule package, which takes over the status
-// rules in the next step; until then it computes the latest start date directly
-// and marks it red once it has arrived. Nothing reads these lines back — Parse
-// throws them away — so replacing this costs only a regenerated golden file.
+// Overdue and start-now share the red glyph — both mean "today, sir" — while
+// «скоро» is a clock and a forgotten duty is asleep. A task with a deadline but
+// no объём has no latest start date, so the hint names the deadline instead.
 func hintLine(t task.Task, now time.Time, cfg *config.Config) string {
-	if t.Done || t.Due == nil || t.Effort.IsZero() {
+	if t.Done {
 		return ""
 	}
 
-	tier := cfg.Tier(t.Tier)
-	buffer := math.Max(float64(tier.BufferMinDays), tier.BufferRatio*t.Effort.Days())
-	// Part of a day of work still occupies a day of the calendar, so the lead
-	// time is rounded up: half a day of work started tomorrow is not started.
-	lead := int(math.Ceil(t.Effort.Days() + buffer))
-	start := t.Due.AddDate(0, 0, -lead)
-
-	days := int(start.Sub(dayOf(now)).Hours() / 24)
-	switch {
-	case days <= 0:
-		return "🔴 начать не позже " + start.Format(DateLayout)
-	case days <= cfg.SoonWindowDays:
-		return "⏰ начать не позже " + start.Format(DateLayout)
-	default:
-		return ""
+	start := schedule.LatestStart(t, cfg)
+	byDate := func(glyph string) string {
+		if start != nil {
+			return glyph + " начать не позже " + start.Format(DateLayout)
+		}
+		return glyph + " срок " + t.Due.Format(DateLayout)
 	}
-}
 
-// dayOf drops the clock time, so that comparisons are between calendar days
-// however the caller's `now` was built.
-func dayOf(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	switch schedule.Status(t, now, cfg) {
+	case task.StatusOverdue:
+		return "🔴 просрочено" + fieldSep + "срок был " + t.Due.Format(DateLayout)
+	case task.StatusStartNow:
+		return byDate("🔴")
+	case task.StatusSoon:
+		return byDate("⏰")
+	}
+
+	if schedule.Has(schedule.Flags(t, now, cfg), schedule.FlagForgotten) {
+		return "💤 забыто" + fieldSep + "создано " + t.Created.Format(DateLayout)
+	}
+	return ""
 }
 
 // appendBlank separates blocks with exactly one empty line, and never opens the

@@ -305,15 +305,15 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/mdstore/parse_test.go`
 - Create: `internal/mdstore/testdata/sample.md`
 
-- [ ] implement `Parse(r io.Reader) (*Document, error)` where `Document` holds ordered sections, each with `[]task.Task`, plus a preamble
-- [ ] parse the task header line: `- [ ] \`T-001\` **Title**` (and `- [x]` with `· выполнено:DATE` for done items)
-- [ ] parse the ` · `-separated field line into the `Task` struct, ignoring unknown keys rather than failing
-- [ ] parse `метки:` lines and `>` note lines; **drop generated glyph lines (🔴 ⏰ 🟡 💤) silently**
-- [ ] return a parse error with line number for a malformed field line or an unparsable date
-- [ ] create `testdata/sample.md` covering: two sections, all field keys, a done task, a multi-line note, a glyph line, a task with no deadline
-- [ ] write tests parsing `sample.md` and asserting the full resulting structure
-- [ ] write error-case tests (bad tier, bad date, bad effort, task line outside any section, duplicate id)
-- [ ] run `go test ./...` - must pass before task 4
+- [x] implement `Parse(r io.Reader) (*Document, error)` where `Document` holds ordered sections, each with `[]task.Task`, plus a preamble
+- [x] parse the task header line: `- [ ] \`T-001\` **Title**` (and `- [x]` with `· выполнено:DATE` for done items)
+- [x] parse the ` · `-separated field line into the `Task` struct, ignoring unknown keys rather than failing
+- [x] parse `метки:` lines and `>` note lines; **drop generated glyph lines (🔴 ⏰ 🟡 💤) silently**
+- [x] return a parse error with line number for a malformed field line or an unparsable date
+- [x] create `testdata/sample.md` covering: two sections, all field keys, a done task, a multi-line note, a glyph line, a task with no deadline
+- [x] write tests parsing `sample.md` and asserting the full resulting structure
+- [x] write error-case tests (bad tier, bad date, bad effort, task line outside any section, duplicate id)
+- [x] run `go test ./...` - must pass before task 4
 
 ### Task 4: Markdown renderer and round-trip guarantee
 

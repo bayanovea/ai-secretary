@@ -428,15 +428,21 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `cmd/secretary/main_test.go`
 - Create: `Makefile`
 
-- [ ] implement subcommand dispatch over stdlib `flag` for: `add`, `brief`, `list`, `done`, `defer`, `fmt`, `check`, `archive`
-- [ ] implement the global `--config`, `--artifact` and hidden `--today=YYYY-MM-DD` flags (the latter defaulting to the real clock)
-- [ ] implement `add` printing the assigned id, and `check` exiting non-zero when the artifact fails to parse
-- [ ] implement `archive` moving `## Сделано` entries older than 30 days into `archive:` from config
-- [ ] add a `Makefile` with `build`, `test`, `install` targets
-- [ ] write integration tests building the binary once in `TestMain` and running each subcommand against a temp-dir artifact with a fixed `--today`
-- [ ] write integration tests for error paths (unknown subcommand, unknown id, unknown section, unparsable artifact ⇒ non-zero exit)
-- [ ] write a test that `add` followed by `fmt` twice is idempotent at the byte level
-- [ ] run `go test ./...` - must pass before task 11
+- [x] implement subcommand dispatch over stdlib `flag` for: `add`, `brief`, `list`, `done`, `defer`, `fmt`, `check`, `archive`
+- [x] implement the global `--config`, `--artifact` and hidden `--today=YYYY-MM-DD` flags (the latter defaulting to the real clock)
+- [x] implement `add` printing the assigned id, and `check` exiting non-zero when the artifact fails to parse
+- [x] implement `archive` moving `## Сделано` entries older than 30 days into `archive:` from config
+- [x] add a `Makefile` with `build`, `test`, `install` targets
+- [x] write integration tests building the binary once in `TestMain` and running each subcommand against a temp-dir artifact with a fixed `--today`
+- [x] write integration tests for error paths (unknown subcommand, unknown id, unknown section, unparsable artifact ⇒ non-zero exit)
+- [x] write a test that `add` followed by `fmt` twice is idempotent at the byte level
+- [x] run `go test ./...` - must pass before task 11
+- ➕ `parseInterspersed` — флаги после позиционного аргумента: `secretary defer T-002 --due=…` пишется именно так, и stdlib `flag` сам это не разбирает
+- ➕ глобальные флаги регистрируются дважды (до и после имени команды), поэтому `--today` работает в обеих позициях
+- ➕ выходные коды разделены: 2 — неверный вызов, 1 — отказ по существу
+- ⚠️ `add --section` по умолчанию берёт первый раздел из конфигурации (`Работа`); навык из задачи 11 всегда указывает раздел явно
+- ⚠️ текст сводки не содержит идентификаторов (так говорит персона из задачи 8) — id берутся из `secretary list` или `brief --json`
+- ⚠️ `archive` пишет архивный файл раньше основного: сбой между записями оставляет задачу в двух местах, а не нигде
 
 ### Task 11: Claude Code skill — the free-text intake
 

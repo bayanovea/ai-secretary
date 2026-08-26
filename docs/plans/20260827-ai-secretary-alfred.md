@@ -392,14 +392,15 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/voice/alfred.go`
 - Create: `internal/voice/alfred_test.go`
 
-- [ ] define `Persona` interface: `Greeting(now) string`, `Overdue(t, days) string`, `StartNow(t) string`, `Soon(t, days) string`, `GroupIntro(g) string`, `Complaint(f Flag, t) string`, `AllClear() string`, `Signoff() string`
-- [ ] implement the Alfred persona in Russian — dry, formal, «сэр», concerned about overextension. Several phrasings per situation
-- [ ] implement deterministic variant selection: `fnv32(taskID + date) % len(variants)` — varies by day, reproducible in tests. **No `math/rand`**
-- [ ] implement `voice.Get(name string) (Persona, error)` so config `persona:` selects the implementation and an unknown name is an error
-- [ ] write tests asserting determinism (same id+date ⇒ same phrase, twice)
-- [ ] write tests asserting variation (different dates over a window produce >1 distinct phrase)
-- [ ] write tests that every method returns non-empty text for a representative task, and that `Get` errors on an unknown persona
-- [ ] run `go test ./...` - must pass before task 9
+- [x] define `Persona` interface: `Greeting(now) string`, `Overdue(t, days) string`, `StartNow(t) string`, `Soon(t, days) string`, `GroupIntro(g) string`, `Complaint(f Flag, t) string`, `AllClear() string`, `Signoff() string` (⚠️ `Flag` is `schedule.Flag`, `g` is `grouping.Group` — voice imports both, no cycle)
+- [x] implement the Alfred persona in Russian — dry, formal, «сэр», concerned about overextension. Several phrasings per situation
+- [x] implement deterministic variant selection: `fnv32(taskID + date) % len(variants)` — varies by day, reproducible in tests. **No `math/rand`**
+- [x] implement `voice.Get(name string) (Persona, error)` so config `persona:` selects the implementation and an unknown name is an error
+- [x] write tests asserting determinism (same id+date ⇒ same phrase, twice)
+- [x] write tests asserting variation (different dates over a window produce >1 distinct phrase)
+- [x] write tests that every method returns non-empty text for a representative task, and that `Get` errors on an unknown persona
+- [x] run `go test ./...` - must pass before task 9
+- ⚠️ `AllClear()` и `Signoff()` не имеют варьирования: интерфейс не передаёт им ни задачи, ни даты, а ритуальная фраза дворецкого и должна быть одной и той же
 
 ### Task 9: Briefing assembly
 

@@ -374,15 +374,16 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/grouping/grouping.go`
 - Create: `internal/grouping/grouping_test.go`
 
-- [ ] implement `Group` struct: `Kind` (context/person/label), `Key`, `Tasks []task.Task`, `Reason string`
-- [ ] implement `Build(tasks []task.Task, cfg *config.Config) []Group` following the priority order: context (≥2) → person excluding `себя` (≥2) → label (≥3)
-- [ ] ensure each task lands in at most one group (first match wins, iterating in a deterministic key order)
-- [ ] require ≥3 members for groups whose tasks are all tier 3
-- [ ] sort groups by max tier asc, then size desc, then key asc
-- [ ] write table-driven tests: context grouping, person grouping, label grouping, `себя` excluded, single-task keys produce no group
-- [ ] write tests for the tier-3-only threshold and for a task eligible for two groups landing in exactly one
-- [ ] write a determinism test (same input, shuffled order ⇒ identical output)
-- [ ] run `go test ./...` - must pass before task 8
+- [x] implement `Group` struct: `Kind` (context/person/label), `Key`, `Tasks []task.Task`, `Reason string`
+- [x] implement `Build(tasks []task.Task, cfg *config.Config) []Group` following the priority order: context (≥2) → person excluding `себя` (≥2) → label (≥3)
+- [x] ensure each task lands in at most one group (first match wins, iterating in a deterministic key order)
+- [x] require ≥3 members for groups whose tasks are all tier 3
+- [x] sort groups by max tier asc, then size desc, then key asc
+- [x] write table-driven tests: context grouping, person grouping, label grouping, `себя` excluded, single-task keys produce no group
+- [x] write tests for the tier-3-only threshold and for a task eligible for two groups landing in exactly one
+- [x] write a determinism test (same input, shuffled order ⇒ identical output)
+- [x] run `go test ./...` - must pass before task 8
+- ⚠️ «max tier asc» реализовано как важность: группа сортируется по наименьшему номеру тира (тир 1 — самый важный) по возрастанию, затем размер по убыванию, затем ключ
 
 ### Task 8: Alfred's voice
 

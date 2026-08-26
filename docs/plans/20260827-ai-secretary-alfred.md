@@ -320,18 +320,18 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 **Files:**
 - Create: `internal/mdstore/render.go`
 - Create: `internal/mdstore/render_test.go`
-- Create: `internal/mdstore/golden.go`
+- Create: `internal/mdstore/golden_test.go` (⚠️ plan said `golden.go`; a non-test file importing `testing` would register `-update` in the production binary)
 - Create: `internal/mdstore/testdata/golden/basic.md`
 
-- [ ] implement `Render(w io.Writer, doc *Document, now time.Time, cfg *config.Config) error` emitting the exact format from Technical Details
-- [ ] emit the `<!-- secretary:v1 -->` marker and the `> Обновлено: …` line
-- [ ] emit generated glyph hint lines from computed status (wired properly in Task 5; a stub mapping is fine here)
-- [ ] omit absent optional fields entirely rather than writing empty values
-- [ ] add a `-update` test flag helper in `golden.go` to rewrite golden files
-- [ ] write a golden test rendering a fixed `Document` at a fixed `now` against `testdata/golden/basic.md`
-- [ ] **write the round-trip property test: `parse(render(parse(sample.md)))` deep-equals `parse(sample.md)`**
-- [ ] write a test that a hand-written file with unusual-but-legal spacing survives a round-trip
-- [ ] run `go test ./...` - must pass before task 5
+- [x] implement `Render(w io.Writer, doc *Document, now time.Time, cfg *config.Config) error` emitting the exact format from Technical Details
+- [x] emit the `<!-- secretary:v1 -->` marker and the `> Обновлено: …` line
+- [x] emit generated glyph hint lines from computed status (wired properly in Task 5; a stub mapping is fine here)
+- [x] omit absent optional fields entirely rather than writing empty values
+- [x] add a `-update` test flag helper in `golden_test.go` (⚠️ renamed from `golden.go`, see Files; regenerate with `go test ./internal/mdstore -update`) to rewrite golden files
+- [x] write a golden test rendering a fixed `Document` at a fixed `now` against `testdata/golden/basic.md`
+- [x] **write the round-trip property test: `parse(render(parse(sample.md)))` deep-equals `parse(sample.md)`**
+- [x] write a test that a hand-written file with unusual-but-legal spacing survives a round-trip
+- [x] run `go test ./...` - must pass before task 5
 
 ### Task 5: Schedule — latest start date and status
 

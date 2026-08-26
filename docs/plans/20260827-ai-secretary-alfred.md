@@ -449,16 +449,19 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 **Files:**
 - Create: `.claude/skills/secretary/SKILL.md`
 
-- [ ] write the skill frontmatter (name `secretary`, description triggering on duty/task capture, briefings, and «что мне сегодня делать»)
-- [ ] document Alfred's persona and register so conversational replies match the artifact's voice
-- [ ] specify the classification procedure: free text → `--title --tier --from --due --effort --section --labels --context --note`
-- [ ] specify tier heuristics (consequences ⇒ 1, obligation without consequence ⇒ 2, wish ⇒ 3) and effort estimation (ask only when a tier-1 task has a deadline but no obvious effort)
-- [ ] specify the ask-vs-assume rule: **assume and state the assumption; ask only when the deadline or the assignor is genuinely unrecoverable from the text**
-- [ ] document every CLI invocation the skill may make, and require running `secretary brief` after each `add`
-- [ ] document the relative-date rule: resolve «до пятницы» / «на следующей неделе» against today's real date before calling the CLI
-- [ ] add worked examples (a work task from a boss, a personal errand, a vague wish, a task that should trigger a grouping suggestion)
-- [ ] verify by driving the skill end-to-end in a scratch directory and confirming the artifact matches expectations
-- [ ] run `go test ./...` - must pass before task 12
+- [x] write the skill frontmatter (name `secretary`, description triggering on duty/task capture, briefings, and «что мне сегодня делать»)
+- [x] document Alfred's persona and register so conversational replies match the artifact's voice
+- [x] specify the classification procedure: free text → `--title --tier --from --due --effort --section --labels --context --note`
+- [x] specify tier heuristics (consequences ⇒ 1, obligation without consequence ⇒ 2, wish ⇒ 3) and effort estimation (ask only when a tier-1 task has a deadline but no obvious effort)
+- [x] specify the ask-vs-assume rule: **assume and state the assumption; ask only when the deadline or the assignor is genuinely unrecoverable from the text**
+- [x] document every CLI invocation the skill may make, and require running `secretary brief` after each `add`
+- [x] document the relative-date rule: resolve «до пятницы» / «на следующей неделе» against today's real date before calling the CLI
+- [x] add worked examples (a work task from a boss, a personal errand, a vague wish, a task that should trigger a grouping suggestion)
+- [x] verify by driving the skill end-to-end in a scratch directory and confirming the artifact matches expectations
+- [x] run `go test ./...` - must pass before task 12
+- ➕ `cmd/secretary/skill_test.go` — сторож от расхождения: навык обязан упоминать каждую подкоманду и каждый флаг `add`, а фронтматтер — быть валидным
+- ⚠️ навык обязан всегда передавать `--section`: без него `add` молча кладёт задачу в первый раздел конфигурации
+- ⚠️ текст сводки не содержит идентификаторов, поэтому «закрой отчёт» разрешается через `list`/`brief --json`, и это записано в навыке
 
 ### Task 12: Seed the artifact and document the Phase-2 seams
 

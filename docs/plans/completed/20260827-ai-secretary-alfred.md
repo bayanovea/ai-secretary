@@ -489,9 +489,9 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 
 ### Task 14: [Final] Update documentation
 
-- [ ] update `README.md` if the CLI surface drifted during implementation
-- [ ] create `CLAUDE.md` capturing the conventions established here (deterministic-time rule, glyph lines are ephemeral, persona-as-data, golden-file workflow with `-update`)
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update `README.md` if the CLI surface drifted during implementation (⚠️ it did not: the subcommands, their flags and the exit codes match the README table exactly, checked against `cmd/secretary/commands.go` and the built binary's usage text. Two gaps filled instead: the README pointed at `secretary.yml` without ever listing its keys, and «Установка» omitted `make vet` / `make fmt`)
+- [x] create `CLAUDE.md` capturing the conventions established here (deterministic-time rule, glyph lines are ephemeral, persona-as-data, golden-file workflow with `-update`)
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 

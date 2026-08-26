@@ -272,14 +272,14 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/config/config.go`
 - Create: `internal/config/config_test.go`
 
-- [ ] `go mod init github.com/bayanovea/secretary` with `go 1.19`; add `gopkg.in/yaml.v3`
-- [ ] create `.gitignore` (`/secretary`, `*.test`, `.DS_Store`)
-- [ ] create `secretary.yml` with the schema from Technical Details (sections, contexts, tiers, windows)
-- [ ] implement `config.Load(path string) (*Config, error)` with defaults applied when the file or a field is absent
-- [ ] implement `Config.Tier(n int) TierConfig` and `Config.HasSection(name string) bool`
-- [ ] write table-driven tests for `Load`: full file, partial file (defaults filled), missing file (defaults), malformed YAML (error)
-- [ ] write tests for `Tier` (valid 1-3, out-of-range returns error/zero) and `HasSection`
-- [ ] run `go test ./...` - must pass before task 2
+- [x] `go mod init github.com/bayanovea/secretary` with `go 1.19`; add `gopkg.in/yaml.v3`
+- [x] create `.gitignore` (`/secretary`, `*.test`, `.DS_Store`)
+- [x] create `secretary.yml` with the schema from Technical Details (sections, contexts, tiers, windows)
+- [x] implement `config.Load(path string) (*Config, error)` with defaults applied when the file or a field is absent
+- [x] implement `Config.Tier(n int) TierConfig` and `Config.HasSection(name string) bool`
+- [x] write table-driven tests for `Load`: full file, partial file (defaults filled), missing file (defaults), malformed YAML (error)
+- [x] write tests for `Tier` (valid 1-3, out-of-range returns error/zero) and `HasSection`
+- [x] run `go test ./...` - must pass before task 2
 
 ### Task 2: Task model, tier and status types
 

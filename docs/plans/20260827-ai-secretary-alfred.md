@@ -470,12 +470,12 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `docs/PHASE2.md`
 - Create: `README.md`
 
-- [ ] create `docs/duties.md` with the header, marker, and the config's sections as empty headings
-- [ ] verify `secretary check` and `secretary brief` both succeed against the empty artifact (all-clear path)
-- [ ] write `README.md`: what it is, install (`make install`), the CLI table, the artifact format, how to edit the artifact by hand safely
-- [ ] write `docs/PHASE2.md` documenting the two deferred integrations against `brief --json`: a scheduled daily briefing, and a Telegram bot — including which packages they reuse unchanged
-- [ ] write a test asserting the seeded `docs/duties.md` parses and contains every section from `secretary.yml`
-- [ ] run `go test ./...` - must pass before task 13
+- [x] create `docs/duties.md` with the header, marker, and the config's sections as empty headings
+- [x] verify `secretary check` and `secretary brief` both succeed against the empty artifact (all-clear path)
+- [x] write `README.md`: what it is, install (`make install`), the CLI table, the artifact format, how to edit the artifact by hand safely
+- [x] write `docs/PHASE2.md` documenting the two deferred integrations against `brief --json`: a scheduled daily briefing, and a Telegram bot — including which packages they reuse unchanged
+- [x] write a test asserting the seeded `docs/duties.md` parses and contains every section from `secretary.yml`
+- [x] run `go test ./...` - must pass before task 13
 
 ### Task 13: Verify acceptance criteria
 

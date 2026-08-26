@@ -409,14 +409,16 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/brief/brief_test.go`
 - Create: `internal/brief/testdata/golden/brief_ru.txt`
 
-- [ ] implement `Build(doc *Document, now time.Time, cfg *config.Config) Briefing` — a structured value: `Overdue, StartNow, Soon []task.Task`, `Groups []grouping.Group`, `Complaints []Complaint`, `Counts map[int]int`
-- [ ] implement `Briefing.Text(p voice.Persona) string` — Alfred's rendered briefing
-- [ ] implement `Briefing.JSON() ([]byte, error)` — the machine-readable form the future Telegram bot and cron job consume
-- [ ] handle the empty case (nothing due, nothing overdue) via `Persona.AllClear()`
-- [ ] write a golden test for `Text` at a fixed `now` over a fixed document against `testdata/golden/brief_ru.txt`
-- [ ] write tests for `Build` bucketing (a task lands in exactly one of overdue/start-now/soon) and for the all-clear path
-- [ ] write a test that `JSON` output unmarshals and contains every bucket
-- [ ] run `go test ./...` - must pass before task 10
+- [x] implement `Build(doc *Document, now time.Time, cfg *config.Config) Briefing` — a structured value: `Overdue, StartNow, Soon []task.Task`, `Groups []grouping.Group`, `Complaints []Complaint`, `Counts map[int]int`
+- [x] implement `Briefing.Text(p voice.Persona) string` — Alfred's rendered briefing
+- [x] implement `Briefing.JSON() ([]byte, error)` — the machine-readable form the future Telegram bot and cron job consume
+- [x] handle the empty case (nothing due, nothing overdue) via `Persona.AllClear()`
+- [x] write a golden test for `Text` at a fixed `now` over a fixed document against `testdata/golden/brief_ru.txt`
+- [x] write tests for `Build` bucketing (a task lands in exactly one of overdue/start-now/soon) and for the all-clear path
+- [x] write a test that `JSON` output unmarshals and contains every bucket
+- [x] run `go test ./...` - must pass before task 10
+- ➕ добавлены `IsClear`, `Total`, `DaysOverdue`, `DaysUntilStart` — сводка сама считает дни, чтобы CLI и будущий бот не повторяли арифметику `schedule`
+- ⚠️ структурные заголовки («Просрочено:», «Заодно:») принадлежат `brief`, а не персоне: интерфейс `Persona` даёт только фразы о задачах
 
 ### Task 10: CLI wiring
 

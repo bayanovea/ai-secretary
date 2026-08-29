@@ -21,6 +21,7 @@ mdstore   parse and render the artifact; Store adds load/mutate/atomic-save.
 voice     Persona interface + alfred.go. Wording only, no decisions.
 brief     assembles what is reported and in which order; asks voice how it sounds.
 cmd/secretary  flag parsing, one load/mutate/save cycle per subcommand, exit code.
+               format.go holds the presentation of `list` — columns, glyphs, colour.
 ```
 
 ## Deterministic time
@@ -58,6 +59,31 @@ if it ever changes.
 
 Writes are atomic: temp file plus rename, so an interrupted command leaves the previous artifact
 intact.
+
+## Steps are input, hints are not
+
+A duty may carry checkbox sub-items (`- [ ] позвонить`, `task.Step`). They are parsed and written
+back verbatim — unlike the glyph lines above them, which are regenerated. Both live in the same
+task block, so the parser tries `taskHeaderRe` first and only then `stepRe`: a step has neither an
+identifier nor a bold title, which is what keeps the two apart.
+
+A step carries an optional `тир:` and `срок:` of its own, written at the end of its line after
+` · ` — the call that opens an errand is routinely more urgent than the errand's deadline. The
+fields are read tail-first and scanning stops at the first segment that is not a known key, so a
+`·` inside the text survives; `mdstore.ParseStep` is the single reader, shared by the parser and by
+`--step` on the command line, which is what keeps a typed step and a hand-written one identical.
+
+Steps still have no effort, no context and no id, and nothing outside `mdstore` and `format.go`
+reads them — `schedule` and `brief` remain deliberately untouched, so a step's срок shows up in
+`list` but never raises its voice in the briefing. Anything that has to be *reminded about* is a
+task. If that ever changes, `brief` and its golden files change with it, in the same commit.
+
+## Colour is optional
+
+`list` lays its duties out in columns and paints them only when stdout is a terminal and `NO_COLOR`
+is unset (`--color always|never` overrides). Everything colour carries is also carried by text —
+the status glyph, the `!!`/`!` tier marks — because the two readers who matter most, a pipe and the
+Claude Code skill, never see the escapes. Do not let a new column exist in colour only.
 
 ## Persona as data
 

@@ -34,7 +34,11 @@ is not on `PATH`, use `go run ./cmd/secretary` — same flags.
 | `secretary add --title "…" --tier N --from "…" [--due YYYY-MM-DD] [--effort Nч\|Nд\|Nн] --section "…" [--labels "a, b"] [--context @место] [--note "…"]` | a new duty. Prints the assigned id (`T-007`) |
 | `secretary brief` | the briefing, in Alfred's voice. **Run after every `add`** |
 | `secretary brief --json` | same, machine-readable — use when you need ids or counts to answer a question |
-| `secretary list [--tier N] [--section S] [--label L] [--context @C]` | «что у меня по работе», «что с меткой переезд» |
+| `secretary list [--tier N] [--section S] [--label L] [--context @C] [--sort date\|tier]` | «что у меня по работе», «что с меткой переезд», «покажи список дел» |
+| `secretary step T-00N` | show the duty's checkboxes, numbered |
+| `secretary step T-00N --add "позвонить" --add "отвезти вещи"` | break one duty into steps |
+| `secretary step T-00N --check N` / `--uncheck N` / `--drop N` | «позвонил», «нет, ещё не», «этот пункт лишний». N is the number `step` printed |
+| `secretary step T-00N --set N [--tier 1..3\|-] [--due YYYY-MM-DD\|-] | a step's own tier and deadline; `-` clears the field |
 | `secretary done T-00N` | «сделал», «закрыл», «отдал» |
 | `secretary defer T-00N --due YYYY-MM-DD` | «перенеси на среду». The new date must be later than the old one; the CLI increments `переносов:` itself |
 | `secretary fmt` | after the user hand-edits the artifact |
@@ -54,6 +58,9 @@ Rules:
   otherwise: «нужны данные от финотдела, они обычно тянут».
 - The briefing text contains no ids on purpose. When the user says «закрой отчёт», resolve the id
   with `secretary list` or `brief --json`, then act.
+- `secretary add` takes `--step "…"`, repeatable, when the user dictates the parts along with the duty.
+- Step numbers are positions in the printed list, not identifiers: they shift after a `--drop`. Print
+  the list again rather than remembering them across turns.
 - `--today` exists for tests. Do not pass it.
 
 ## Classification procedure
@@ -72,6 +79,10 @@ For each duty in the user's message:
 6. **`--section`** — one of the configured sections. Work/colleagues/clients ⇒ `Работа`; errands,
    friends, purchases ⇒ `Личное`; flat, repairs, utilities ⇒ `Дом`; doctors, sport ⇒ `Здоровье`;
    family and partner ⇒ `Отношения`; money, taxes, insurance ⇒ `Финансы`.
+   A user may configure an extra section for a project or a period of life; such a section outranks
+   the others: anything that exists only because of the project goes there, even when it would
+   otherwise be `Финансы` or `Личное`.
+   A duty that would exist anyway (a checkup, a haircut, groceries) stays in its own section.
 7. **`--context`** — where the duty is physically done: `@город`, `@дом`, `@телефон`,
    `@компьютер`, `@работа`. This is what makes «заодно» suggestions correct, so set it whenever
    it is obvious — an errand outside the flat is `@город`, a call is `@телефон`.
@@ -103,6 +114,36 @@ guess produces a wrong start date on the one duty that must not slip. Everywhere
 
 A tier-1 duty with no `--due` *and* no `--effort` makes Alfred complain in every briefing until it
 is fixed — which is intended, but do not manufacture it out of laziness.
+
+## Steps vs. separate duties
+
+A step is a part of **one** errand: same day, same place, same person doing it. «Позвонить на склад»
+and «отвезти вещи» are two duties — different days, different efforts, and the second waits on the
+first. «Позвонить», «уточнить цену», «записать адрес» inside one call are steps.
+
+The test: **would it ever need its own объём or контекст, or have to be chased by the briefing?**
+If yes it is a duty, and it goes through `add` with a `--note` naming what it depends on. If no it is
+a step — a date alone no longer forces the split, since a step can hold one.
+
+A step may carry its own `тир` and `срок` — «позвонить» is often due long before the errand it opens
+— set either with `step --set N`, or inline when dictating: `--step "позвонить · тир:1 · срок:2026-09-01"`.
+It carries no объём and no контекст: the duty's `объём` covers all of its steps, so do not inflate it
+when steps are added.
+
+**Steps never appear in `brief`.** A step's срок is shown by `list`, which expands the checklist under
+its duty, but nothing will remind the user of it — that is the price of it being a step. If the date
+has to be *chased*, make it a duty. A duty whose every step is checked is still open until
+`secretary done`.
+
+Do not manufacture steps. Add them when the user dictates parts («на склад: позвонить, потом
+отвезти вещи») or asks to break something down. A duty that is one action needs none.
+
+```bash
+secretary step T-019 --add "позвонить, узнать цену" --add "уточнить, влезет ли всё"
+secretary step T-019 --check 1
+```
+
+> Позвонили, сэр. Остался один подпункт — уточнить, влезет ли всё.
 
 ## Ask vs. assume
 
@@ -208,11 +249,32 @@ secretary brief
 
 - «что мне сегодня делать», «что горит», «сводку» ⇒ `secretary brief`, printed verbatim, with at
   most one sentence of your own before or after it.
-- «что по работе» ⇒ `secretary list --section "Работа"`.
+- «покажи список дел», «что по работе» ⇒ `secretary list` (с `--section "Работа"`, если спросили про раздел).
 - «что я откладываю» ⇒ `secretary brief` — the «Отдельно:» block is exactly that.
 - «сделал отчёт» ⇒ resolve the id (`secretary list --section "Работа"`), then `secretary done T-001`.
+- «что там по складу», «что осталось» про конкретное дело ⇒ `secretary step T-019`, печатая список
+  как есть.
+- «позвонил» про дело с подпунктами ⇒ `secretary step T-019 --check 1`, а не `done`: закрыт
+  подпункт, а не обязанность.
 - «перенеси на среду» ⇒ resolve the id and the date, then `secretary defer T-001 --due 2026-09-02`.
   If the CLI refuses because the new date is not later, say so — it is a real objection, not an error.
+
+## How the list is shown
+
+`list` prints columns — glyph, tier marks, title, status, deadline, effort, context, then a dim tail
+with who asked, the labels and the identifier. A duty with a checklist is followed by its numbered
+steps, indented, their dates in the same column as the duties' own. The alignment is the whole point,
+and it survives only in a monospace block.
+
+- Print the output of `list` **verbatim, inside a fenced code block**. Do not re-flow it into
+  bullets, do not turn it into a Markdown table, do not re-order it, do not drop columns.
+- One sentence of your own before it, at most one after. The columns are the report; you are not.
+- The identifiers are dimmed to the end of each line on purpose — they are there for you to resolve
+  «закрой доверенность», not for the user to read. Never repeat them back in your own sentence.
+- `--sort date` is the default and is what a person asking «что у меня» means. Pass `--sort tier`
+  only when they ask by importance.
+- Never pass `--color`: the output is captured, not shown in a terminal, and escape codes would end
+  up in the transcript as garbage. `auto` already keeps them out.
 
 ## When something is wrong
 

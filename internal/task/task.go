@@ -79,6 +79,8 @@ type Task struct {
 	Labels  []string
 	// Notes are the free-text `>` lines, one entry per line.
 	Notes []string
+	// Steps are the checkbox sub-items of the duty, in the order written.
+	Steps []Step
 	// Deferrals counts how many times the deadline has been pushed back. Alfred
 	// starts commenting at two.
 	Deferrals   int
@@ -114,3 +116,43 @@ const (
 	MinTier = 1
 	MaxTier = 3
 )
+
+// Step is one checkbox inside a duty: «позвонить», «отвезти вещи». Steps are
+// the parts of a single errand, not duties in their own right — they have no
+// identifier and no effort, and they never appear in a brief on their own.
+//
+// Tier and Due are optional and independent of the parent: the call that opens
+// an errand is often more urgent than the errand's own deadline. Both are zero
+// for the ordinary step, which is most of them.
+type Step struct {
+	Text string
+	Done bool
+	Tier int
+	Due  *time.Time
+}
+
+// HasDue reports whether the step carries a deadline of its own.
+func (s Step) HasDue() bool { return s.Due != nil }
+
+// StepsDone counts the checked steps.
+func (t Task) StepsDone() int {
+	n := 0
+	for _, s := range t.Steps {
+		if s.Done {
+			n++
+		}
+	}
+	return n
+}
+
+// StepsLeft counts the unchecked ones.
+func (t Task) StepsLeft() int { return len(t.Steps) - t.StepsDone() }
+
+// Progress renders the step count as `2/3`, or "" for a duty without steps —
+// which is most of them, and must not grow a column for it.
+func (t Task) Progress() string {
+	if len(t.Steps) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d/%d", t.StepsDone(), len(t.Steps))
+}

@@ -57,6 +57,10 @@ var (
 	// taskHeaderRe is deliberately loose about whitespace: the artifact is
 	// hand-edited and an extra space must not lose a duty.
 	taskHeaderRe = regexp.MustCompile("^-\\s*\\[([ xX])\\]\\s*`([^`]*)`\\s*\\*\\*(.+?)\\*\\*\\s*(?:·\\s*(.*?))?\\s*$")
+	// stepRe matches a checkbox inside a task block. It is tried only after
+	// taskHeaderRe has failed, so the two cannot be confused: a step carries
+	// neither an identifier nor a bold title.
+	stepRe = regexp.MustCompile(`^-\s*\[([ xX])\]\s*(.*)$`)
 )
 
 // Section is one `## Заголовок` block with the tasks filed under it, in the
@@ -169,6 +173,15 @@ func Parse(r io.Reader) (*Document, error) {
 		case strings.HasPrefix(line, ">"):
 			cur.Notes = append(cur.Notes, strings.TrimSpace(strings.TrimPrefix(line, ">")))
 		default:
+			if m := stepRe.FindStringSubmatch(line); m != nil {
+				step, err := parseStep(strings.TrimSpace(m[2]), lineNo)
+				if err != nil {
+					return nil, fmt.Errorf("%w (задача %s)", err, cur.ID)
+				}
+				step.Done = m[1] != " "
+				cur.Steps = append(cur.Steps, step)
+				continue
+			}
 			if err := applyFields(cur, line, lineNo); err != nil {
 				return nil, err
 			}
@@ -315,4 +328,75 @@ func trimBlank(lines []string) []string {
 		return nil
 	}
 	return lines[start:end]
+}
+
+// parseStep reads the text of a checkbox and the optional `· тир:1 · срок:…`
+// pairs a step may carry. Only *trailing* known keys are taken as fields, and
+// scanning stops at the first segment that is not one: a step whose text itself
+// contains a `·` keeps it, which is the same forgiveness the task line gets for
+// unknown keys.
+func parseStep(text string, lineNo int) (task.Step, error) {
+	var step task.Step
+	for {
+		head, tail, ok := cutLast(text, "·")
+		if !ok {
+			break
+		}
+		key, value, ok := strings.Cut(strings.TrimSpace(tail), ":")
+		if !ok {
+			break
+		}
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		switch key {
+		case keyTier:
+			if step.Tier != 0 {
+				return step, errAt(lineNo, "подпункт: тир указан дважды")
+			}
+			tier, err := strconv.Atoi(value)
+			if err != nil {
+				return step, errAt(lineNo, "подпункт: тир %q: не число", value)
+			}
+			if tier < task.MinTier || tier > task.MaxTier {
+				return step, errAt(lineNo, "подпункт: тир %d: ожидается 1..3", tier)
+			}
+			step.Tier = tier
+		case keyDue:
+			if step.Due != nil {
+				return step, errAt(lineNo, "подпункт: срок указан дважды")
+			}
+			due, err := parseDate(value, keyDue, lineNo)
+			if err != nil {
+				return step, err
+			}
+			step.Due = &due
+		default:
+			// Not a step field — it belongs to the text.
+			return finishStep(step, text, lineNo)
+		}
+		text = strings.TrimSpace(head)
+	}
+	return finishStep(step, text, lineNo)
+}
+
+func finishStep(step task.Step, text string, lineNo int) (task.Step, error) {
+	if text == "" {
+		return step, errAt(lineNo, "подпункт без текста")
+	}
+	step.Text = text
+	return step, nil
+}
+
+// cutLast is strings.Cut from the right — the step fields are read tail first.
+func cutLast(s, sep string) (before, after string, found bool) {
+	if i := strings.LastIndex(s, sep); i >= 0 {
+		return s[:i], s[i+len(sep):], true
+	}
+	return s, "", false
+}
+
+// ParseStep turns one hand-written step — «позвонить · срок:2026-09-01» — into
+// a Step. It is the same reader the artifact uses, so `--step` on the command
+// line and a line typed into the file mean exactly the same thing.
+func ParseStep(text string) (task.Step, error) {
+	return parseStep(strings.TrimSpace(text), 0)
 }

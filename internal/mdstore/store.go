@@ -35,6 +35,7 @@ var (
 	ErrDuplicateID    = errors.New("идентификатор уже занят")
 	ErrNotLater       = errors.New("новый срок не позже прежнего")
 	ErrAlreadyDone    = errors.New("задача уже выполнена")
+	ErrUnknownStep    = errors.New("нет такого подпункта")
 )
 
 // Store is the artifact on disk: a path, and the configuration that says how to
@@ -180,6 +181,14 @@ func trim(t *task.Task) {
 	}
 	t.Labels = labels
 
+	steps := t.Steps[:0]
+	for _, step := range t.Steps {
+		if step.Text = strings.TrimSpace(step.Text); step.Text != "" {
+			steps = append(steps, step)
+		}
+	}
+	t.Steps = steps
+
 	notes := t.Notes[:0]
 	for _, note := range t.Notes {
 		if note = strings.TrimSpace(note); note != "" {
@@ -187,6 +196,106 @@ func trim(t *task.Task) {
 		}
 	}
 	t.Notes = notes
+}
+
+// AddStep appends checkbox sub-items to a duty.
+//
+// Steps are only added to an open duty: a completed task is a record of what
+// happened, and appending to it would rewrite history.
+func (d *Document) AddStep(id string, texts ...string) error {
+	t, err := d.openTask(id)
+	if err != nil {
+		return err
+	}
+	for _, text := range texts {
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		step, err := ParseStep(text)
+		if err != nil {
+			return err
+		}
+		t.Steps = append(t.Steps, step)
+	}
+	return nil
+}
+
+// StepFields is the part of a step that carries its own urgency. A zero value
+// leaves the step alone; the Clear flags exist because "no tier" and "tier 0"
+// have to be distinguishable on a command line.
+type StepFields struct {
+	Tier      int
+	ClearTier bool
+	Due       *time.Time
+	ClearDue  bool
+}
+
+// SetStepFields changes the tier and срок of the n-th step, counting from one.
+func (d *Document) SetStepFields(id string, n int, f StepFields) error {
+	t, err := d.openTask(id)
+	if err != nil {
+		return err
+	}
+	if n < 1 || n > len(t.Steps) {
+		return fmt.Errorf("%w: %s: подпункт %d", ErrUnknownStep, id, n)
+	}
+	step := &t.Steps[n-1]
+	switch {
+	case f.ClearTier:
+		step.Tier = 0
+	case f.Tier != 0:
+		step.Tier = f.Tier
+	}
+	switch {
+	case f.ClearDue:
+		step.Due = nil
+	case f.Due != nil:
+		due := day(*f.Due)
+		step.Due = &due
+	}
+	return nil
+}
+
+// SetStep checks or unchecks the n-th step, counting from one — the number the
+// CLI prints, so that what the user reads is what they type back.
+func (d *Document) SetStep(id string, n int, done bool) error {
+	t, err := d.openTask(id)
+	if err != nil {
+		return err
+	}
+	if n < 1 || n > len(t.Steps) {
+		return fmt.Errorf("%w: %s %d: всего подпунктов %d", ErrUnknownStep, id, n, len(t.Steps))
+	}
+	t.Steps[n-1].Done = done
+	return nil
+}
+
+// DropStep removes the n-th step and returns it, so the caller can name what it
+// deleted.
+func (d *Document) DropStep(id string, n int) (task.Step, error) {
+	t, err := d.openTask(id)
+	if err != nil {
+		return task.Step{}, err
+	}
+	if n < 1 || n > len(t.Steps) {
+		return task.Step{}, fmt.Errorf("%w: %s %d: всего подпунктов %d", ErrUnknownStep, id, n, len(t.Steps))
+	}
+	step := t.Steps[n-1]
+	t.Steps = append(t.Steps[:n-1], t.Steps[n:]...)
+	return step, nil
+}
+
+// openTask returns a pointer to a task that may still be modified.
+func (d *Document) openTask(id string) (*task.Task, error) {
+	si, ti, found := d.find(id)
+	if !found {
+		return nil, fmt.Errorf("%w: %s", ErrUnknownID, id)
+	}
+	t := &d.Sections[si].Tasks[ti]
+	if t.Done {
+		return nil, fmt.Errorf("%w: %s", ErrAlreadyDone, id)
+	}
+	return t, nil
 }
 
 // Done moves the task into `## Сделано` and dates it.

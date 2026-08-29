@@ -91,6 +91,24 @@ func taskLines(t task.Task, now time.Time, cfg *config.Config) []string {
 	for _, note := range t.Notes {
 		lines = append(lines, indent+"> "+note)
 	}
+	// Steps sit under the remarks and above the hint: they are input the user
+	// edits by hand, and the hint below them is not.
+	for _, step := range t.Steps {
+		box := " "
+		if step.Done {
+			box = "x"
+		}
+		line := indent + "- [" + box + "] " + step.Text
+		// A step's own tier and срок ride at the end of its line, in the same
+		// `ключ:значение` vocabulary the task line uses.
+		if step.Tier != 0 {
+			line += fieldSep + keyTier + ":" + strconv.Itoa(step.Tier)
+		}
+		if step.Due != nil {
+			line += fieldSep + keyDue + ":" + step.Due.Format(DateLayout)
+		}
+		lines = append(lines, line)
+	}
 	if hint := hintLine(t, now, cfg); hint != "" {
 		lines = append(lines, indent+hint)
 	}

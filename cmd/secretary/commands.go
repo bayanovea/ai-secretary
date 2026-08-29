@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bayanovea/secretary/internal/brief"
 	"github.com/bayanovea/secretary/internal/mdstore"
@@ -26,7 +28,7 @@ type command interface {
 // commands lists the subcommands in the order they appear in the help.
 func commands() []command {
 	return []command{
-		&addCmd{}, &briefCmd{}, &listCmd{}, &doneCmd{},
+		&addCmd{}, &briefCmd{}, &listCmd{}, &stepCmd{}, &doneCmd{},
 		&deferCmd{}, &fmtCmd{}, &checkCmd{}, &archiveCmd{},
 	}
 }
@@ -65,6 +67,7 @@ type addCmd struct {
 	labels  string
 	context string
 	notes   stringList
+	steps   stringList
 }
 
 func (c *addCmd) name() string    { return "add" }
@@ -80,6 +83,7 @@ func (c *addCmd) register(fs *flag.FlagSet) {
 	fs.StringVar(&c.labels, "labels", "", "метки через запятую")
 	fs.StringVar(&c.context, "context", "", "контекст, например @город")
 	fs.Var(&c.notes, "note", "заметка (можно повторять)")
+	fs.Var(&c.steps, "step", "подпункт-чекбокс (можно повторять)")
 }
 
 func (c *addCmd) run(a *app, args []string) error {
@@ -90,6 +94,11 @@ func (c *addCmd) run(a *app, args []string) error {
 		return fmt.Errorf("%w: add требует --title", errUsage)
 	}
 
+	parsedSteps, err := steps(c.steps)
+	if err != nil {
+		return err
+	}
+
 	t := task.Task{
 		Title:   c.title,
 		Tier:    c.tier,
@@ -98,6 +107,7 @@ func (c *addCmd) run(a *app, args []string) error {
 		Context: c.context,
 		Labels:  splitLabels(c.labels),
 		Notes:   c.notes,
+		Steps:   parsedSteps,
 		Created: a.now,
 	}
 	if t.Section == "" {
@@ -195,6 +205,8 @@ type listCmd struct {
 	section string
 	label   string
 	context string
+	order   string
+	color   string
 }
 
 func (c *listCmd) name() string { return "list" }
@@ -207,11 +219,32 @@ func (c *listCmd) register(fs *flag.FlagSet) {
 	fs.StringVar(&c.section, "section", "", "только этот раздел")
 	fs.StringVar(&c.label, "label", "", "только с этой меткой")
 	fs.StringVar(&c.context, "context", "", "только с этим контекстом")
+	fs.StringVar(&c.order, "sort", sortByDate, "порядок внутри раздела: date — по срокам, tier — как в артефакте")
+	fs.StringVar(&c.color, "color", "auto", "цвет: auto, always или never")
 }
+
+// Sort orders accepted by `--sort`. The artifact keeps duties in tier order,
+// which is right for a file read top to bottom; a person asking «что у меня»
+// reads by date, so that is the default here.
+const (
+	sortByDate = "date"
+	sortByTier = "tier"
+)
+
+// titleWidthMax caps the title column so that one long duty cannot push the
+// columns of every other duty off the screen.
+const titleWidthMax = 46
 
 func (c *listCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("%w: list не принимает позиционных аргументов", errUsage)
+	}
+	if c.order != sortByDate && c.order != sortByTier {
+		return fmt.Errorf("%w: --sort %q: ожидается date или tier", errUsage, c.order)
+	}
+	color, err := colorEnabled(c.color, a.out)
+	if err != nil {
+		return err
 	}
 
 	doc, err := a.load()
@@ -219,7 +252,12 @@ func (c *listCmd) run(a *app, args []string) error {
 		return err
 	}
 
-	found := 0
+	type group struct {
+		name  string
+		tasks []task.Task
+	}
+	var groups []group
+	titleWidth := 0
 	for _, section := range doc.Sections {
 		var matched []task.Task
 		for _, t := range section.Tasks {
@@ -230,20 +268,55 @@ func (c *listCmd) run(a *app, args []string) error {
 		if len(matched) == 0 {
 			continue
 		}
-		if found > 0 {
-			a.printf("\n")
+		if c.order == sortByDate {
+			sort.SliceStable(matched, func(i, j int) bool { return earlierDue(matched[i], matched[j]) })
 		}
-		a.printf("%s\n", section.Name)
 		for _, t := range matched {
-			a.printf("  · %s\n", listLine(t, a))
+			if w := utf8.RuneCountInString(t.Title); w > titleWidth {
+				titleWidth = w
+			}
 		}
-		found += len(matched)
+		groups = append(groups, group{name: section.Name, tasks: matched})
 	}
 
-	if found == 0 {
+	if len(groups) == 0 {
 		a.printf("Ничего не найдено, сэр.\n")
+		return nil
+	}
+	if titleWidth > titleWidthMax {
+		titleWidth = titleWidthMax
+	}
+
+	pal := palette{on: color}
+	for i, g := range groups {
+		if i > 0 {
+			a.printf("\n")
+		}
+		a.printf("%s\n", pal.bold(g.name))
+		for _, t := range g.tasks {
+			a.printf("  %s\n", listLine(t, a, pal, titleWidth))
+			for _, l := range stepLines(t, a, pal, titleWidth) {
+				a.printf("%s\n", l)
+			}
+		}
 	}
 	return nil
+}
+
+// earlierDue is the date order: nearest deadline first, undated duties last —
+// they are the ones with nothing to be late for — then by tier and by id so that
+// the order is total and two runs on the same day agree.
+func earlierDue(a, b task.Task) bool {
+	if (a.Due == nil) != (b.Due == nil) {
+		return b.Due == nil
+	}
+	if a.Due != nil && !a.Due.Equal(*b.Due) {
+		return a.Due.Before(*b.Due)
+	}
+	if a.Tier != b.Tier {
+		return a.Tier < b.Tier
+	}
+	return a.ID < b.ID
 }
 
 func (c *listCmd) matches(t task.Task, section string) bool {
@@ -267,28 +340,221 @@ func (c *listCmd) matches(t task.Task, section string) bool {
 	return true
 }
 
-// listLine is one duty on one line: enough to recognise it and to see where it
-// stands, without repeating what the artifact already renders in full.
-func listLine(t task.Task, a *app) string {
-	parts := []string{
-		fmt.Sprintf("%s «%s»", t.ID, t.Title),
-		fmt.Sprintf("тир %d", t.Tier),
-		"от " + t.From,
-	}
-	if t.Due != nil {
-		parts = append(parts, "срок "+t.Due.Format(mdstore.DateLayout))
-	}
+// listLine is one duty on one line, laid out in columns so that a column can be
+// read down the page: what it is, how it stands, when it is due, how much work
+// it is, where it is done. Everything a person does not scan for — who asked,
+// the labels, the remarks, the identifier — is dimmed into the tail.
+func listLine(t task.Task, a *app, pal palette, titleWidth int) string {
+	status := schedule.Status(t, a.now, a.cfg)
+
+	effort := ""
 	if !t.Effort.IsZero() {
-		parts = append(parts, "объём "+t.Effort.String())
+		effort = t.Effort.String()
 	}
-	if t.Context != "" {
-		parts = append(parts, t.Context)
+
+	var tail []string
+	if t.From != "" && t.From != "себя" {
+		tail = append(tail, "от "+t.From)
+	}
+	if p := t.Progress(); p != "" {
+		tail = append(tail, "подпункты "+p)
 	}
 	if len(t.Labels) > 0 {
-		parts = append(parts, strings.Join(t.Labels, ", "))
+		tail = append(tail, strings.Join(t.Labels, ", "))
 	}
-	parts = append(parts, schedule.Status(t, a.now, a.cfg).String())
-	return strings.Join(parts, " · ")
+	for _, f := range schedule.Flags(t, a.now, a.cfg) {
+		tail = append(tail, f.String())
+	}
+	tail = append(tail, t.ID)
+
+	line := statusGlyph(status) + " " +
+		pal.tierColor(t.Tier, padLeft(tierMark(t.Tier), 2)) + " " +
+		pal.tierColor(t.Tier, pad(truncate(t.Title, titleWidth), titleWidth)) + "  " +
+		pal.statusColor(status, pad(status.String(), 13)) + " " +
+		pad(humanDue(t.Due, a.now), 11) +
+		padLeft(effort, 4) + "  " +
+		pad(t.Context, 11) + " " +
+		pal.dim(strings.Join(tail, " · "))
+
+	return strings.TrimRight(line, " ")
+}
+
+// ── step ──────────────────────────────────────────────────────────────────────
+
+// stepCmd manages the checkboxes inside one duty. Called with an identifier and
+// nothing else it prints them, numbered, which is the numbering `--check` and
+// `--drop` expect.
+type stepCmd struct {
+	add     stringList
+	check   int
+	uncheck int
+	drop    int
+	set     int
+	tier    string
+	due     string
+}
+
+func (c *stepCmd) name() string    { return "step" }
+func (c *stepCmd) summary() string { return "подпункты внутри обязанности" }
+
+func (c *stepCmd) register(fs *flag.FlagSet) {
+	fs.Var(&c.add, "add", "добавить подпункт (можно повторять)")
+	fs.IntVar(&c.check, "check", 0, "отметить N-й подпункт выполненным")
+	fs.IntVar(&c.uncheck, "uncheck", 0, "снять отметку с N-го подпункта")
+	fs.IntVar(&c.drop, "drop", 0, "удалить N-й подпункт")
+	fs.IntVar(&c.set, "set", 0, "править N-й подпункт: --tier, --due")
+	fs.StringVar(&c.tier, "tier", "", "тир подпункта при --set: 1..3 или «-», чтобы снять")
+	fs.StringVar(&c.due, "due", "", "срок подпункта при --set: ГГГГ-ММ-ДД или «-», чтобы снять")
+}
+
+func (c *stepCmd) run(a *app, args []string) error {
+	id, err := oneID("step", args)
+	if err != nil {
+		return err
+	}
+
+	doc, err := a.load()
+	if err != nil {
+		return err
+	}
+
+	// Deletion runs last so that the numbers named by --check and --drop in one
+	// call both refer to the list the user was looking at.
+	var lines []string
+	if len(c.add) > 0 {
+		if err := doc.AddStep(id, c.add...); err != nil {
+			return err
+		}
+		lines = append(lines, fmt.Sprintf("Добавлено подпунктов: %d.", len(c.add)))
+	}
+	if c.set != 0 {
+		fields, err := c.stepFields()
+		if err != nil {
+			return err
+		}
+		if err := doc.SetStepFields(id, c.set, fields); err != nil {
+			return err
+		}
+		t, _ := doc.Find(id)
+		lines = append(lines, fmt.Sprintf("Изменён подпункт: %d. %s", c.set, stepTail(t.Steps[c.set-1])))
+	}
+	for _, m := range []struct {
+		n    int
+		done bool
+		verb string
+	}{{c.check, true, "Выполнено"}, {c.uncheck, false, "Снята отметка"}} {
+		if m.n == 0 {
+			continue
+		}
+		if err := doc.SetStep(id, m.n, m.done); err != nil {
+			return err
+		}
+		t, _ := doc.Find(id)
+		lines = append(lines, fmt.Sprintf("%s: %d. %s", m.verb, m.n, t.Steps[m.n-1].Text))
+	}
+	if c.drop != 0 {
+		step, err := doc.DropStep(id, c.drop)
+		if err != nil {
+			return err
+		}
+		lines = append(lines, fmt.Sprintf("Удалён подпункт: %s", step.Text))
+	}
+
+	if len(lines) > 0 {
+		if err := a.save(doc); err != nil {
+			return err
+		}
+	}
+
+	t, ok := doc.Find(id)
+	if !ok {
+		return fmt.Errorf("%w: %s", mdstore.ErrUnknownID, id)
+	}
+	for _, line := range lines {
+		a.printf("%s\n", line)
+	}
+
+	a.printf("%s «%s»", t.ID, t.Title)
+	if len(t.Steps) > 0 {
+		a.printf(" · %s", t.Progress())
+	}
+	a.printf("\n")
+	if len(t.Steps) == 0 {
+		a.printf("Подпунктов нет, сэр.\n")
+		return nil
+	}
+	for i, step := range t.Steps {
+		box := " "
+		if step.Done {
+			box = "x"
+		}
+		a.printf("  %d. [%s] %s\n", i+1, box, stepTail(step))
+	}
+	if t.StepsLeft() == 0 && !t.Done {
+		a.printf("Все подпункты закрыты — можно отмечать: secretary done %s\n", t.ID)
+	}
+	return nil
+}
+
+// stepFields reads the --tier/--due pair of `step --set`. An empty flag leaves
+// the field alone; «-» removes it — a distinction a bare number cannot make.
+func (c *stepCmd) stepFields() (mdstore.StepFields, error) {
+	var f mdstore.StepFields
+	if c.tier == "" && c.due == "" {
+		return f, fmt.Errorf("%w: step --set требует --tier или --due", errUsage)
+	}
+	switch {
+	case c.tier == "-":
+		f.ClearTier = true
+	case c.tier != "":
+		tier, err := strconv.Atoi(c.tier)
+		if err != nil || tier < task.MinTier || tier > task.MaxTier {
+			return f, fmt.Errorf("%w: --tier %q: ожидается 1..3 или «-»", errUsage, c.tier)
+		}
+		f.Tier = tier
+	}
+	switch {
+	case c.due == "-":
+		f.ClearDue = true
+	case c.due != "":
+		due, err := parseDate(c.due, "--due")
+		if err != nil {
+			return f, err
+		}
+		f.Due = &due
+	}
+	return f, nil
+}
+
+// stepTail is a step as it is read back to the user: the text, then whatever
+// urgency of its own it carries.
+func stepTail(s task.Step) string {
+	out := s.Text
+	if s.Tier != 0 {
+		out += " · тир " + strconv.Itoa(s.Tier)
+	}
+	if s.Due != nil {
+		out += " · срок " + s.Due.Format(mdstore.DateLayout)
+	}
+	return out
+}
+
+// steps turns the repeatable `--step` values into unchecked sub-items. The text
+// is read by the artifact's own parser, so `--step "позвонить · срок:2026-09-01"`
+// on the command line means what the same line means in the file.
+func steps(texts []string) ([]task.Step, error) {
+	var out []task.Step
+	for _, text := range texts {
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		step, err := mdstore.ParseStep(text)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, step)
+	}
+	return out, nil
 }
 
 // ── done ──────────────────────────────────────────────────────────────────────
@@ -320,6 +586,9 @@ func (c *doneCmd) run(a *app, args []string) error {
 	}
 
 	a.printf("Отмечено выполненным: %s «%s».\n", id, t.Title)
+	if left := t.StepsLeft(); left > 0 {
+		a.printf("Незакрытых подпунктов осталось: %d — они уходят в «Сделано» как есть.\n", left)
+	}
 	return nil
 }
 

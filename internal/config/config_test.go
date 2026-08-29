@@ -175,13 +175,23 @@ func TestLoad(t *testing.T) {
 
 // The checked-in secretary.yml must load and match the built-in defaults,
 // otherwise the documented format and the code have drifted apart.
+//
+// Sections are exempt: this repository is also somebody's live configuration,
+// and the section list is the one field a person is expected to edit — a new
+// project earns a heading. Everything else is format, and format must not move.
 func TestLoadRepoConfig(t *testing.T) {
 	got, err := Load(filepath.Join("..", "..", "secretary.yml"))
 	if err != nil {
 		t.Fatalf("Load(secretary.yml) error = %v", err)
 	}
-	if !reflect.DeepEqual(got, Default()) {
-		t.Errorf("secretary.yml does not match Default():\n got %+v\nwant %+v", got, Default())
+	if len(got.Sections) == 0 {
+		t.Error("secretary.yml не объявляет ни одного раздела")
+	}
+
+	normalised := *got
+	normalised.Sections = Default().Sections
+	if !reflect.DeepEqual(&normalised, Default()) {
+		t.Errorf("secretary.yml does not match Default():\n got %+v\nwant %+v", &normalised, Default())
 	}
 }
 

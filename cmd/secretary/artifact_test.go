@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/bayanovea/secretary/internal/config"
 	"github.com/bayanovea/secretary/internal/mdstore"
@@ -58,14 +60,38 @@ func TestSeededArtifactSurvivesRoundTrip(t *testing.T) {
 		t.Fatalf("артефакт не читается: %v", err)
 	}
 
+	// The day is taken from the artifact itself rather than fixed here: the hint
+	// lines and the «Обновлено» line are generated from the date of the last
+	// write, so replaying any other day is guaranteed to rewrite the file and
+	// would fail the test for a reason that has nothing to do with the format.
+	today := "--today=" + updatedDate(t, string(original))
+
 	w := newWorkspace(t)
 	w.write(t, w.artifact, string(original))
 
-	w.mustRun(t, "--today=2026-08-27", "check")
-	w.mustRun(t, "--today=2026-08-27", "brief")
-	w.mustRun(t, "--today=2026-08-27", "fmt")
+	w.mustRun(t, today, "check")
+	w.mustRun(t, today, "brief")
+	w.mustRun(t, today, "fmt")
 
 	if got := w.read(t, w.artifact); got != string(original) {
 		t.Errorf("fmt переписал пустой артефакт:\n--- было ---\n%s\n--- стало ---\n%s", original, got)
 	}
+}
+
+// updatedDate reads the date off the generated «Обновлено» line.
+func updatedDate(t *testing.T, artifact string) string {
+	t.Helper()
+	for _, line := range strings.Split(artifact, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "> Обновлено:") {
+			rest := strings.TrimPrefix(trimmed, "> Обновлено:")
+			date := strings.TrimSpace(strings.SplitN(rest, "·", 2)[0])
+			if _, err := time.Parse(mdstore.DateLayout, date); err != nil {
+				t.Fatalf("в строке «Обновлено» не дата: %q", date)
+			}
+			return date
+		}
+	}
+	t.Fatal("в артефакте нет строки «Обновлено»")
+	return ""
 }

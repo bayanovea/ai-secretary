@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/config"
-	"github.com/bayanovea/secretary/internal/mdstore"
-	"github.com/bayanovea/secretary/internal/schedule"
-	"github.com/bayanovea/secretary/internal/task"
-	"github.com/bayanovea/secretary/internal/voice"
+	"github.com/bayanovea/ai-secretary/internal/config"
+	"github.com/bayanovea/ai-secretary/internal/mdstore"
+	"github.com/bayanovea/ai-secretary/internal/schedule"
+	"github.com/bayanovea/ai-secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/voice"
 )
 
 // updateGolden rewrites the expected briefing instead of comparing against it.

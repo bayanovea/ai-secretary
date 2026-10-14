@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // The list is read with the eyes, not parsed: a glyph says how loud the duty is,

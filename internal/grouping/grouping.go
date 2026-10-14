@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bayanovea/secretary/internal/config"
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/config"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // Kind is the signal a group was built from.

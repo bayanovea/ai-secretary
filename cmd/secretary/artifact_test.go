@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/config"
-	"github.com/bayanovea/secretary/internal/mdstore"
+	"github.com/bayanovea/ai-secretary/internal/config"
+	"github.com/bayanovea/ai-secretary/internal/mdstore"
 )
 
 // The repository's own artifact and configuration. Every other test works in a

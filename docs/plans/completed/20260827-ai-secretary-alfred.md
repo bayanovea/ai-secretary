@@ -272,7 +272,7 @@ Within a section: tier asc → status severity desc → deadline asc (absent las
 - Create: `internal/config/config.go`
 - Create: `internal/config/config_test.go`
 
-- [x] `go mod init github.com/bayanovea/secretary` with `go 1.19`; add `gopkg.in/yaml.v3`
+- [x] `go mod init github.com/bayanovea/ai-secretary` with `go 1.19`; add `gopkg.in/yaml.v3`
 - [x] create `.gitignore` (`/secretary`, `*.test`, `.DS_Store`)
 - [x] create `secretary.yml` with the schema from Technical Details (sections, contexts, tiers, windows)
 - [x] implement `config.Load(path string) (*Config, error)` with defaults applied when the file or a field is absent

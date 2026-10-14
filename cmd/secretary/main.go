@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/config"
-	"github.com/bayanovea/secretary/internal/mdstore"
-	"github.com/bayanovea/secretary/internal/voice"
+	"github.com/bayanovea/ai-secretary/internal/config"
+	"github.com/bayanovea/ai-secretary/internal/mdstore"
+	"github.com/bayanovea/ai-secretary/internal/voice"
 )
 
 // Exit codes. Usage failures are told apart from runtime ones so that a script

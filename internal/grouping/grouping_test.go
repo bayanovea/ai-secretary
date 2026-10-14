@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // mk builds a duty with only the fields grouping looks at.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 const withSteps = `# Duties

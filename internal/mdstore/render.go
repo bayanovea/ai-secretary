@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/config"
-	"github.com/bayanovea/secretary/internal/schedule"
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/config"
+	"github.com/bayanovea/ai-secretary/internal/schedule"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // greeting closes the generated «Updated» line. Alfred's real vocabulary

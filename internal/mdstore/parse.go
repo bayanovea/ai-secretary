@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // DateLayout is the `YYYY-MM-DD` form used by every date in the artifact.

@@ -9,10 +9,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/bayanovea/secretary/internal/brief"
-	"github.com/bayanovea/secretary/internal/mdstore"
-	"github.com/bayanovea/secretary/internal/schedule"
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/brief"
+	"github.com/bayanovea/ai-secretary/internal/mdstore"
+	"github.com/bayanovea/ai-secretary/internal/schedule"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // command is one subcommand. Flags are registered in one phase and read in

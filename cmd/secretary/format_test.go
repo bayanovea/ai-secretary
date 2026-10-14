@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 func date(s string) time.Time {

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/grouping"
-	"github.com/bayanovea/secretary/internal/schedule"
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/grouping"
+	"github.com/bayanovea/ai-secretary/internal/schedule"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 func day(s string) time.Time {

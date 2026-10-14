@@ -1,6 +1,6 @@
 # secretary
 
-[![ci](https://github.com/bayanovea/secretary/actions/workflows/ci.yml/badge.svg)](https://github.com/bayanovea/secretary/actions/workflows/ci.yml)
+[![ci](https://github.com/bayanovea/ai-secretary/actions/workflows/ci.yml/badge.svg)](https://github.com/bayanovea/ai-secretary/actions/workflows/ci.yml)
 
 A command-line secretary for one person's duties. You describe an obligation in plain words,
 a Claude Code skill turns it into structured fields, and a Go binary keeps everything in one
@@ -32,7 +32,7 @@ You need Go 1.19 or newer. The repository ships with a small synthetic artifact,
 what you will see.
 
 ```sh
-git clone https://github.com/bayanovea/secretary && cd secretary
+git clone https://github.com/bayanovea/ai-secretary && cd secretary
 go build -o secretary ./cmd/secretary
 ./secretary --today=2026-10-14 brief
 ```

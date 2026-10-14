@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/config"
-	"github.com/bayanovea/secretary/internal/schedule"
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/config"
+	"github.com/bayanovea/ai-secretary/internal/schedule"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // DefaultPreamble opens an artifact this package creates from nothing.

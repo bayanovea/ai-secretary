@@ -1,4 +1,4 @@
-module github.com/bayanovea/secretary
+module github.com/bayanovea/ai-secretary
 
 go 1.19
 

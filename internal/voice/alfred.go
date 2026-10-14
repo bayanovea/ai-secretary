@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bayanovea/secretary/internal/grouping"
-	"github.com/bayanovea/secretary/internal/schedule"
-	"github.com/bayanovea/secretary/internal/task"
+	"github.com/bayanovea/ai-secretary/internal/grouping"
+	"github.com/bayanovea/ai-secretary/internal/schedule"
+	"github.com/bayanovea/ai-secretary/internal/task"
 )
 
 // Alfred is Alfred Pennyworth: the butler who has known you since you were

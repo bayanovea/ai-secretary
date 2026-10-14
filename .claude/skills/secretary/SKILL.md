@@ -48,7 +48,8 @@ the data). If `secretary` is not on `PATH`, use `go run ./cmd/secretary` — sam
 Rules:
 
 - **`--section` always explicitly.** Omitted, it silently defaults to the first configured section
-  (`Work`), which is wrong roughly half the time. Read `secretary.yml` for the section list.
+  (`Work`), which is wrong roughly half the time. Read `secretary.yml` for the section list —
+  `$SECRETARY_HOME/secretary.yml` when that variable is set, since that is the file the binary reads.
 - **`--from` always.** `self` when the user assigned it to themselves. Provenance is half the point
   of the artifact.
 - **Always `secretary brief` after `add`.** Adding one duty can make another one urgent, or complete

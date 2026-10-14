@@ -1,15 +1,16 @@
 ---
 allowed-tools: Bash(go run:*)
-description: Список дел — весь артефакт, без уточнений
+description: The list of duties — the whole artifact, no questions asked
 ---
 
-Список дел на сегодня:
+Today's list of duties:
 
 !`go run ./cmd/secretary list`
 
-Напечатай вывод выше дословно, в блоке кода: не переливай в буллеты и не в
-таблицу Markdown, не переупорядочивай, не выбрасывай колонки — выравнивание
-и есть отчёт. Одна фраза от себя перед блоком, голосом Альфреда, и не больше.
-Идентификаторы в конце строк не повторяй.
+Print the output above verbatim, in a code block: do not reflow it into bullets
+or a Markdown table, do not reorder it, do not drop columns — the alignment is
+the report. One sentence of your own before the block, in Alfred's voice, and
+no more. Do not repeat the identifiers at the end of the lines.
 
-Если вывод пуст или команда упала — скажи об этом прямо, не выдумывай список.
+If the output is empty or the command failed, say so plainly; do not invent a
+list.

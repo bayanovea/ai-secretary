@@ -7,7 +7,7 @@ or a design decision depends on it.
 
 A Go CLI (`cmd/secretary`) over a single hand-editable Markdown artifact (`docs/duties.md`). No
 database, no server, no state outside the artifact and `secretary.yml`. The fuzzy part — turning
-«надо до пятницы отдать документы» into flags — lives in the Claude Code skill at
+«hand the papers to the notary by Friday» into flags — lives in the Claude Code skill at
 `.claude/skills/secretary/SKILL.md`, not in Go.
 
 Package layout, dependencies pointing one way only:
@@ -15,7 +15,7 @@ Package layout, dependencies pointing one way only:
 ```
 task      domain model: a duty, its effort, its status enum. No clock, no I/O.
 config    secretary.yml, every field defaulted. A missing file is not an error.
-schedule  latest start date and status from (срок, объём, тир) and a `now`.
+schedule  latest start date and status from (due, effort, tier) and a `now`.
 grouping  batches of duties convenient to do in one go.
 mdstore   parse and render the artifact; Store adds load/mutate/atomic-save.
 voice     Persona interface + alfred.go. Wording only, no decisions.
@@ -30,7 +30,7 @@ cmd/secretary  flag parsing, one load/mutate/save cycle per subcommand, exit cod
 `cmd/secretary/main.go:resolveToday`, and even there it is truncated to a calendar day in UTC so a
 command run at midnight behaves like one run at noon.
 
-Everything else takes a `now time.Time` argument. The hidden global flag `--today=ГГГГ-ММ-ДД`
+Everything else takes a `now time.Time` argument. The hidden global flag `--today=YYYY-MM-DD`
 overrides it; it is absent from the usage text on purpose (`commandUsage` walks the flag set and
 skips flags with an empty usage string) because it exists for tests and for a future cron job
 replaying a day, not for daily use.
@@ -43,7 +43,7 @@ Dates parsed out of the artifact and dates produced by the CLI must compare exac
 
 ## Glyph lines are ephemeral
 
-The 🔴 ⏰ 🟡 💤 hint lines, the `<!-- secretary:v1 -->` marker and the `> Обновлено:` line are
+The 🔴 ⏰ 🟡 💤 hint lines, the `<!-- secretary:v1 -->` marker and the `> Updated:` line are
 *generated*. The parser drops them; the renderer writes them back from the current date. Never
 treat them as input, and never ask a user to edit them — an edited hint disappears on the next
 `fmt`.
@@ -53,8 +53,8 @@ test in `internal/mdstore`. Any new rendered decoration must be dropped by the p
 commit, or the round-trip test will catch you.
 
 Parsing is forgiving about spacing and unknown lines, strict about tiers, dates and efforts — a
-wrong answer there is worse than an error. Unknown *field keys* on the `тир:… · от:…` line do not
-survive `fmt`; that is documented in the README's «Правка руками» section, so keep the two in sync
+wrong answer there is worse than an error. Unknown *field keys* on the `tier:… · from:…` line do not
+survive `fmt`; that is documented in the README's «Editing by hand» section, so keep the two in sync
 if it ever changes.
 
 Writes are atomic: temp file plus rename, so an interrupted command leaves the previous artifact
@@ -62,19 +62,19 @@ intact.
 
 ## Steps are input, hints are not
 
-A duty may carry checkbox sub-items (`- [ ] позвонить`, `task.Step`). They are parsed and written
+A duty may carry checkbox sub-items (`- [ ] call them`, `task.Step`). They are parsed and written
 back verbatim — unlike the glyph lines above them, which are regenerated. Both live in the same
 task block, so the parser tries `taskHeaderRe` first and only then `stepRe`: a step has neither an
 identifier nor a bold title, which is what keeps the two apart.
 
-A step carries an optional `тир:` and `срок:` of its own, written at the end of its line after
+A step carries an optional `tier:` and `due:` of its own, written at the end of its line after
 ` · ` — the call that opens an errand is routinely more urgent than the errand's deadline. The
 fields are read tail-first and scanning stops at the first segment that is not a known key, so a
 `·` inside the text survives; `mdstore.ParseStep` is the single reader, shared by the parser and by
 `--step` on the command line, which is what keeps a typed step and a hand-written one identical.
 
 Steps still have no effort, no context and no id, and nothing outside `mdstore` and `format.go`
-reads them — `schedule` and `brief` remain deliberately untouched, so a step's срок shows up in
+reads them — `schedule` and `brief` remain deliberately untouched, so a step's due date shows up in
 `list` but never raises its voice in the briefing. Anything that has to be *reminded about* is a
 task. If that ever changes, `brief` and its golden files change with it, in the same commit.
 
@@ -111,11 +111,21 @@ git diff        # read the diff — that is the review
 
 Regenerating without reading the diff defeats the point of the test.
 
+## Where the data lives
+
+A checkout of this repository is a working example: `secretary.yml` and `docs/duties.md` at the
+root are synthetic sample data, and the tests read them (`TestLoadRepoConfig`, the seeded-artifact
+tests). Real duties never go into the repository. `SECRETARY_HOME` points the binary at a private
+directory holding its own `secretary.yml` and artifact; relative paths in that configuration
+resolve against the home, while an explicit `--artifact` stays relative to the working directory.
+
 ## Language
 
-Code, comments and this file: English. Everything a user sees — CLI output, errors, usage text,
-README, the artifact, the skill: Russian. Errors are sentences a person can act on, not error
-codes.
+Everything is English: code, comments, CLI output, errors, usage text, the artifact format, the
+skill and the docs. The artifact's field keys (`tier:`, `due:`, `effort:`) are part of the file
+format, so changing one is a format change: parser, renderer, goldens, README and SKILL.md move
+in the same commit. Section names, contexts and labels are configuration and free text, so a user
+may keep those in any language. Errors are sentences a person can act on, not error codes.
 
 Comments explain *why*, not what the line does. If a comment restates the code, delete it.
 

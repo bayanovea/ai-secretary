@@ -1,53 +1,56 @@
-# Telegram-бот над тем же артефактом
+# Telegram bot over the same artifact
 
 ## Overview
 
-Второй фронтенд к тому же секретарю: пишешь боту с телефона — дело попадает в `docs/duties.md`;
-просишь список — приходит `list`; утром приходит сводка. Три сценария из запроса:
+A second frontend to the same secretary: you message the bot from your phone and the duty lands in
+`docs/duties.md`; you ask for a list and `list` comes back; in the morning the briefing arrives.
+Three scenarios from the request:
 
-1. **«Забрать шорты из доставки до среды»** → бот заводит дело и отвечает голосом Альфреда,
-   проговаривая, что он предположил (раздел, тир, срок).
-2. **«Что у меня по делам»** → бот отвечает списком.
-3. **Утро** → бот сам присылает сводку за сегодня, если есть что сказать.
+1. **"Pick up the parcel by Wednesday"** → the bot creates the duty and replies in Alfred's voice,
+   stating what it assumed (section, tier, due date).
+2. **"What is on my list"** → the bot replies with the list.
+3. **Morning** → the bot sends today's briefing on its own, if there is something to say.
 
-**Архитектуру менять не придётся** — это главный вывод разведки, и он снимает опасение из запроса:
+**The architecture does not need to change** — this is the main finding of discovery, and it removes
+the concern raised in the request:
 
-- Telegram-бот работает через **long polling**: процесс сам ходит на `api.telegram.org`. Никакого
-  входящего порта, домена, TLS и белого IP. Ноутбук за NAT — нормальная площадка.
-- Хранилище остаётся markdown-файлом. `docs/PHASE2.md` уже спроектировал этот шов: бот — это
-  «новый `main`», а `mdstore`, `schedule`, `grouping`, `brief`, `voice`, `config` переиспользуются
-  **без единой правки**. Атомарная запись (temp + rename) уже на месте; CLI и бот могут работать по
-  одному файлу одновременно.
-- Единственная реально новая часть — интейк: свободный текст → поля. В phase 1 это Claude Code
-  через `SKILL.md`. Бот вызывает **тот же `SKILL.md`** через `claude -p` подпроцессом, поэтому
-  второго классификатора не заводится и эвристики тиров/дат не могут разойтись между фронтендами.
+- A Telegram bot works through **long polling**: the process itself calls `api.telegram.org`. No
+  inbound port, domain, TLS or public IP. A laptop behind NAT is a fine host.
+- Storage stays a markdown file. `docs/PHASE2.md` already designed this seam: the bot is a
+  "new `main`", and `mdstore`, `schedule`, `grouping`, `brief`, `voice`, `config` are reused
+  **without a single change**. Atomic writes (temp + rename) are already in place; the CLI and the
+  bot can work on the same file at the same time.
+- The only really new part is intake: free text → fields. In phase 1 that is Claude Code through
+  `SKILL.md`. The bot calls **the same `SKILL.md`** through a `claude -p` subprocess, so no second
+  classifier appears and the tier/date heuristics cannot drift apart between frontends.
 
-Этап 1 (эта задача) — бот на ноуте. Этап 2 (отдельная задача, вне scope) — git-синк и деплой на
-VPS; он добавляется обёрткой вокруг процесса и кода бота не касается.
+Stage 1 (this task) — the bot on the laptop. Stage 2 (a separate task, out of scope) — git sync and
+deployment to a VPS; it is added as a wrapper around the process and does not touch the bot code.
 
 ## Context (from discovery)
 
-- **Проект**: Go CLI (`cmd/secretary`) над `docs/duties.md`; одна внешняя зависимость — `yaml.v3`;
+- **Project**: Go CLI (`cmd/secretary`) over `docs/duties.md`; one external dependency — `yaml.v3`;
   go 1.19.
-- **Шов уже описан**: `docs/PHASE2.md`, раздел «Integration B — Telegram bot». План следует ему.
-- **API, которое переиспользуется как есть**:
-  - `config.Load(path) (*Config, error)` — отсутствующий файл не ошибка
+- **The seam is already described**: `docs/PHASE2.md`, section "Integration B — Telegram bot". The
+  plan follows it.
+- **API reused as is**:
+  - `config.Load(path) (*Config, error)` — a missing file is not an error
   - `mdstore.NewStore(path, cfg)`, `Store.Load() (*Document, error)`, `Store.Save(doc, now) error`
-  - `Document.Add(task.Task, cfg) (string, error)` — возвращает присвоенный id
+  - `Document.Add(task.Task, cfg) (string, error)` — returns the assigned id
   - `brief.Build(doc, now, cfg) Briefing`, `Briefing.Text(voice.Persona) string`, `.JSON()`,
     `.IsClear() bool`
   - `voice.Get(name) (Persona, error)`
-- **Дисциплина времени**: ни один пакет под `internal/` не читает часы; `time.Now()` живёт ровно в
-  одном месте — `cmd/secretary/main.go:resolveToday`. Новый бинарь обязан соблюдать то же правило:
-  часы только в `cmd/secretary-bot`, все решения — чистые функции от переданного `now`.
-- **Форматирование `list`**: живёт в `cmd/secretary/format.go` (не в `internal/`), поэтому бот его
-  не импортирует — см. решение 5 в Solution Overview.
-- **Тесты**: golden-файлы в `internal/mdstore` и `internal/brief`, `internal/` держится ≥80%
-  покрытия, гейт — `go test ./... && go vet ./...`.
+- **Time discipline**: no package under `internal/` reads a clock; `time.Now()` lives in exactly one
+  place — `cmd/secretary/main.go:resolveToday`. The new binary must follow the same rule: the clock
+  only in `cmd/secretary-bot`, every decision is a pure function of the `now` passed in.
+- **`list` formatting**: lives in `cmd/secretary/format.go` (not in `internal/`), so the bot does not
+  import it — see decision 5 in Solution Overview.
+- **Tests**: golden files in `internal/mdstore` and `internal/brief`, `internal/` is kept at ≥80%
+  coverage, the gate is `go test ./... && go vet ./...`.
 
 ## Development Approach
 
-- **testing approach**: Regular (код, потом тесты в той же задаче)
+- **testing approach**: Regular (code first, then tests in the same task)
 - complete each task fully before moving to the next
 - make small, focused changes
 - **CRITICAL: every task MUST include new/updated tests** for code changes in that task
@@ -60,21 +63,22 @@ VPS; он добавляется обёрткой вокруг процесса 
 - **CRITICAL: all tests must pass before starting next task** - no exceptions
 - **CRITICAL: update this plan file when scope changes during implementation**
 - run tests after each change
-- maintain backward compatibility: `cmd/secretary` и артефакт не меняются, `brief --json` остаётся
-  стабильным контрактом
+- maintain backward compatibility: `cmd/secretary` and the artifact do not change, `brief --json`
+  stays a stable contract
 
 ## Testing Strategy
 
-- **unit tests**: обязательны в каждой задаче (см. Development Approach)
-- **никакой сети и никаких подпроцессов в тестах**:
-  - Telegram-клиент тестируется против `httptest.Server` — транспорт подменяется базовым URL
-  - интейк тестируется через интерфейс `Classifier` с фейковой реализацией; настоящий `claude -p`
-    вызывается только вручную (см. Post-Completion)
-- **детерминизм**: все тесты передают фиксированный `now`; ни один тест не читает часы. Это то же
-  правило, что делает golden-файлы осмысленными.
-- **e2e**: UI-тестов в проекте нет, Playwright/Cypress отсутствуют — раздел неприменим.
-- **acceptance**: в `cmd/secretary-bot/main_test.go` — сценарий «апдейт → артефакт изменился →
-  отправлен ответ» на фейковом транспорте и фейковом классификаторе, по образцу
+- **unit tests**: required in every task (see Development Approach)
+- **no network and no subprocesses in tests**:
+  - the Telegram client is tested against an `httptest.Server` — the transport is swapped through
+    the base URL
+  - intake is tested through the `Classifier` interface with a fake implementation; the real
+    `claude -p` is called only by hand (see Post-Completion)
+- **determinism**: every test passes a fixed `now`; no test reads the clock. This is the same rule
+  that makes the golden files meaningful.
+- **e2e**: the project has no UI tests, no Playwright/Cypress — the section does not apply.
+- **acceptance**: in `cmd/secretary-bot/main_test.go` — the scenario "update → artifact changed →
+  reply sent" on a fake transport and a fake classifier, modelled on
   `cmd/secretary/acceptance_test.go`.
 
 ## Progress Tracking
@@ -90,111 +94,115 @@ VPS; он добавляется обёрткой вокруг процесса 
 ```
 Telegram ──long poll──► cmd/secretary-bot ──► internal/bot.Handle(now, …)
                               │                        │
-                         (часы здесь)                  ├─► internal/intake  ─► claude -p + SKILL.md
+                         (clock here)                  ├─► internal/intake  ─► claude -p + SKILL.md
                               │                        │                       → Intent{Add|Brief|List}
-                         тикер сводки                  ├─► mdstore.Store.Load/Save
+                         brief ticker                  ├─► mdstore.Store.Load/Save
                               │                        ├─► brief.Build(…).Text(alfred)
                               └────────────────────────┴─► internal/telegram.SendMessage
 ```
 
-**Решение 1 — отдельный бинарь `cmd/secretary-bot`.** Не подкоманда `secretary bot`: у демона
-другой жизненный цикл, другие секреты и другой набор отказов. `docs/PHASE2.md` называет это «новым
-`main`». `cmd/secretary` не трогается вовсе.
+**Decision 1 — a separate binary `cmd/secretary-bot`.** Not a `secretary bot` subcommand: a daemon
+has a different lifecycle, different secrets and a different set of failures. `docs/PHASE2.md` calls
+it a "new `main`". `cmd/secretary` is not touched at all.
 
-**Решение 2 — свой Telegram-клиент на `net/http`.** `getUpdates` + `sendMessage` — это два вызова и
-две структуры. Проект живёт с одной зависимостью, и ради двух эндпоинтов её вторую заводить не
-стоит. Базовый URL — поле структуры, поэтому `httptest` подменяет весь транспорт.
+**Decision 2 — our own Telegram client on `net/http`.** `getUpdates` + `sendMessage` are two calls
+and two structs. The project lives with one dependency, and a second one is not worth adding for two
+endpoints. The base URL is a struct field, so `httptest` replaces the whole transport.
 
-**Решение 3 — интейк через `claude -p` с тем же `SKILL.md`.** Путь к скиллу — ключ конфига
-(`skill:`), файл читается на старте и кладётся в системный промпт целиком. `SKILL.md` **не
-редактируется**: бот-специфичная приписка (верни только JSON, инструменты не запускай) живёт в
-`internal/intake/prompt.go`. Так у обоих фронтендов ровно один источник эвристик — то, чего требует
-`docs/PHASE2.md` («keep that prompt derived from `SKILL.md` rather than forked from it»).
+**Decision 3 — intake through `claude -p` with the same `SKILL.md`.** The path to the skill is a
+config key (`skill:`); the file is read at startup and placed into the system prompt in full.
+`SKILL.md` is **not edited**: the bot-specific addendum (return only JSON, do not run tools) lives in
+`internal/intake/prompt.go`. So both frontends have exactly one source of heuristics — which is what
+`docs/PHASE2.md` requires ("keep that prompt derived from `SKILL.md` rather than forked from it").
 
-**Решение 4 — часы только в `cmd/secretary-bot`.** `bot.Handle` и `bot.ShouldPush` принимают
-`now time.Time`. Это не церемония: именно так утренняя сводка тестируется без ожидания утра, и это
-то же правило, что уже действует в `cmd/secretary`.
+**Decision 4 — the clock only in `cmd/secretary-bot`.** `bot.Handle` and `bot.ShouldPush` take
+`now time.Time`. This is not ceremony: this is how the morning briefing is tested without waiting
+for the morning, and it is the same rule that is already in force in `cmd/secretary`.
 
-**Решение 5 — «список» бот отдаёт через `brief --json`-подобную сборку, а не через `format.go`.**
-Колоночная раскладка `list` живёт в `cmd/secretary/format.go` и заточена под терминал (ширины,
-ANSI-цвет). В Telegram она не нужна и импортировать `main`-пакет нельзя. Бот рендерит свой плоский
-список из `doc.Tasks()` + `schedule` — короткий рендер в `internal/bot/render.go`. Дублирование
-здесь дешевле связывания: у терминала и у чата разные ограничения по ширине.
+**Decision 5 — the bot serves the "list" through a `brief --json`-like assembly, not through
+`format.go`.** The column layout of `list` lives in `cmd/secretary/format.go` and is tuned for a
+terminal (widths, ANSI colour). Telegram does not need it, and a `main` package cannot be imported.
+The bot renders its own flat list from `doc.Tasks()` + `schedule` — a short renderer in
+`internal/bot/render.go`. Duplication here is cheaper than coupling: the terminal and the chat have
+different width constraints.
 
-**Решение 6 — один чат, всё остальное отвергается.** Артефакт не знает про аккаунты. `chat_id` в
-конфиге; апдейт из любого другого чата логируется и молча игнорируется. Токен — только из
-переменной окружения `TELEGRAM_BOT_TOKEN`, в `secretary.yml` его нет (файл в git).
+**Decision 6 — one chat, everything else is rejected.** The artifact knows nothing about accounts.
+`chat_id` is in the config; an update from any other chat is logged and silently ignored. The token
+comes only from the `TELEGRAM_BOT_TOKEN` environment variable; it is not in `secretary.yml` (the
+file is in git).
 
-**Решение 7 — записи сериализованы мьютексом.** `Store` не держит состояния между вызовами и
-перечитывает файл каждый раз, но два сообщения подряд не должны переплести read-modify-write.
-Один `sync.Mutex` на весь цикл load→mutate→save.
+**Decision 7 — writes are serialized with a mutex.** `Store` keeps no state between calls and
+re-reads the file every time, but two messages in a row must not interleave a read-modify-write.
+One `sync.Mutex` around the whole load→mutate→save cycle.
 
-**Решение 8 — сводка внутри процесса, с защитой от повтора.** Горутина раз в минуту спрашивает
-чистую функцию `ShouldPush(now, at, lastPushed)`. Дата последней отправки хранится в маленьком
-JSON-файле рядом с артефактом, поэтому перезапуск бота не рассылает сводку второй раз, а ноутбук,
-проснувшийся в 11:00, всё-таки получит утреннюю сводку за сегодня. При `all_clear` и
-`quiet_when_clear: true` сводка не шлётся — ежедневное «ничего не горит» приучает её игнорировать.
+**Decision 8 — the briefing runs inside the process, with repeat protection.** A goroutine asks the
+pure function `ShouldPush(now, at, lastPushed)` once a minute. The date of the last send is stored
+in a small JSON file next to the artifact, so a bot restart does not send the briefing a second time,
+and a laptop that wakes up at 11:00 still gets today's morning briefing. With `all_clear` and
+`quiet_when_clear: true` the briefing is not sent — a daily "nothing is urgent" teaches you to
+ignore it.
 
 ## Technical Details
 
-### Конфиг: новый блок `telegram:`
+### Config: new `telegram:` block
 
-`internal/config` расширяется одной структурой; все поля имеют значения по умолчанию, отсутствие
-блока — не ошибка, ровно как сейчас.
+`internal/config` is extended with one struct; every field has a default, a missing block is not an
+error, exactly as now.
 
 ```yaml
 # secretary.yml
-skill: .claude/skills/secretary/SKILL.md   # источник промпта для интейка
+skill: .claude/skills/secretary/SKILL.md   # prompt source for intake
 telegram:
-  chat_id: 0                # обязателен для бота; 0 = бот откажется стартовать
-  brief_at: "08:00"         # локальное время утренней сводки
-  quiet_when_clear: true    # не слать сводку в спокойный день
+  chat_id: 0                # required for the bot; 0 = the bot refuses to start
+  brief_at: "08:00"         # local time of the morning briefing
+  quiet_when_clear: true    # do not send the briefing on a quiet day
   poll_timeout_sec: 30      # long polling
   state: docs/.bot-state.json
-  claude_bin: claude        # чем вызывать интейк
+  claude_bin: claude        # what to call for intake
   claude_timeout_sec: 60
 ```
 
-Токен — `TELEGRAM_BOT_TOKEN` из окружения. Отсутствие токена или `chat_id: 0` — отказ на старте с
-внятным русским сообщением и кодом `2`.
+The token is `TELEGRAM_BOT_TOKEN` from the environment. A missing token or `chat_id: 0` is a refusal
+at startup with a clear, actionable message and exit code `2`.
 
-### Контракт интейка
+### Intake contract
 
-`claude -p` получает системный промпт `SKILL.md` + приписку и должен вернуть **только** JSON:
+`claude -p` receives the system prompt `SKILL.md` + the addendum and must return **only** JSON:
 
 ```json
 {
   "action": "add" | "brief" | "list" | "unclear",
-  "reply": "Записал в Личное, тир 2, срок 2 сентября, сэр.",
+  "reply": "Filed under Personal, tier 2, due 2 September, sir.",
   "task": {
-    "title": "Забрать шорты из доставки",
+    "title": "Pick up the parcel",
     "tier": 2,
-    "section": "Личное",
-    "from": "себя",
+    "section": "Personal",
+    "from": "self",
     "due": "2026-09-02",
-    "effort": "1ч",
-    "context": "@город",
-    "labels": ["доставка"],
+    "effort": "1h",
+    "context": "@town",
+    "labels": ["delivery"],
     "notes": ["..."]
   },
   "filter": { "section": "…", "tier": 0, "label": "…", "context": "@…" }
 }
 ```
 
-- `task` присутствует только при `action: "add"`, `filter` — только при `"list"` (все поля
-  необязательны).
-- `unclear` — бот пересылает `reply` как есть и ничего не пишет. Правило «ask-vs-assume» из
-  `SKILL.md` действует и здесь: в чате уточняющий вопрос дешевле неверной записи.
-- Промпту передаются сегодняшняя дата, список разделов и контекстов из конфига — иначе
-  относительные даты («до среды») и раздел он вычислить не может.
-- Ответ Claude парсится строго: невалидный JSON, неизвестный `action`, тир вне 1..3 или дата не в
-  `mdstore.DateLayout` → ошибка, бот отвечает «Не разобрал, сэр» и **ничего не пишет в артефакт**.
-  Молчаливая догадка тут хуже отказа — то же правило, что у парсера артефакта.
+- `task` is present only with `action: "add"`, `filter` only with `"list"` (all fields are
+  optional).
+- `unclear` — the bot forwards `reply` as is and writes nothing. The "ask-vs-assume" rule from
+  `SKILL.md` applies here too: in a chat a clarifying question is cheaper than a wrong entry.
+- The prompt receives today's date and the list of sections and contexts from the config — otherwise
+  it cannot resolve relative dates ("by Wednesday") or the section.
+- Claude's answer is parsed strictly: invalid JSON, an unknown `action`, a tier outside 1..3 or a
+  date not in `mdstore.DateLayout` → an error; the bot replies "I did not catch that, sir" and
+  **writes nothing to the artifact**. A silent guess is worse than a refusal here — the same rule
+  as in the artifact parser.
 
-### Поток обработки одного сообщения
+### Processing flow for one message
 
 ```
-Update → chat_id совпал? ─нет→ игнор (лог)
+Update → chat_id matches? ─no→ ignore (log)
        → mutex.Lock
        → intake.Classify(text, now, cfg) → Intent
        → switch Intent.Action:
@@ -208,218 +216,225 @@ Update → chat_id совпал? ─нет→ игнор (лог)
        → telegram.SendMessage(chat_id, reply)
 ```
 
-`add` всегда отвечает и подтверждением, и свежей сводкой — то же правило, что у `SKILL.md`
-(«Always `secretary brief` after `add`»): новое дело может сделать срочным другое.
+`add` always replies with both the confirmation and a fresh briefing — the same rule as in
+`SKILL.md` ("Always `secretary brief` after `add`"): a new duty can make another one urgent.
 
-### Разбиение по пакетам
+### Package split
 
-| Пакет | Ответственность | Часы |
+| Package | Responsibility | Clock |
 |---|---|---|
-| `internal/telegram` | `getUpdates`/`sendMessage`, типы `Update`/`Message`, backoff | нет |
-| `internal/intake` | `Classifier` интерфейс + `claude -p` реализация, сборка промпта, парс JSON | нет (`now` аргумент) |
-| `internal/bot` | диспетчер `Handle`, рендер списка, `ShouldPush`, файл состояния | нет (`now` аргумент) |
-| `cmd/secretary-bot` | конфиг, токен, `time.Now()`, цикл поллинга, тикер, коды выхода | **да, единственное место** |
+| `internal/telegram` | `getUpdates`/`sendMessage`, `Update`/`Message` types, backoff | no |
+| `internal/intake` | `Classifier` interface + `claude -p` implementation, prompt assembly, JSON parsing | no (`now` argument) |
+| `internal/bot` | `Handle` dispatcher, list renderer, `ShouldPush`, state file | no (`now` argument) |
+| `cmd/secretary-bot` | config, token, `time.Now()`, polling loop, ticker, exit codes | **yes, the only place** |
 
 ## What Goes Where
 
-- **Implementation Steps** (`[ ]` checkboxes): всё, что делается в этом репозитории — код, тесты,
-  документация.
-- **Post-Completion** (без чекбоксов): регистрация бота в @BotFather, получение токена и chat_id,
-  первый живой прогон с настоящим `claude -p`, установка в launchd, этап 2 (VPS).
+- **Implementation Steps** (`[ ]` checkboxes): everything done in this repository — code, tests,
+  documentation.
+- **Post-Completion** (no checkboxes): registering the bot with @BotFather, getting the token and
+  chat_id, the first live run with the real `claude -p`, installing under launchd, stage 2 (VPS).
 
 ## Implementation Steps
 
-### Task 1: Блок `telegram:` и ключ `skill:` в конфиге
+### Task 1: `telegram:` block and `skill:` key in the config
 
 **Files:**
 - Modify: `internal/config/config.go`
 - Modify: `internal/config/config_test.go`
 - Modify: `secretary.yml`
 
-- [ ] добавить в `config.go` структуру `Telegram` с полями `ChatID`, `BriefAt`, `QuietWhenClear`,
-      `PollTimeoutSec`, `State`, `ClaudeBin`, `ClaudeTimeoutSec` и yaml-тегами
-- [ ] добавить поля `Skill string` и `Telegram Telegram` в `Config`, константы значений по умолчанию
-      рядом с существующими `Default*`
-- [ ] дополнить `Default()` и логику дозаполнения в `Load` так, чтобы отсутствующий блок `telegram:`
-      и отсутствующий `skill:` давали дефолты, а не нули
-- [ ] добавить `skill:` и закомментированный пример блока `telegram:` в `secretary.yml`
-- [ ] написать тесты: полный блок читается; отсутствующий блок даёт дефолты; частично заполненный
-      блок дозаполняется; битый YAML — ошибка
-- [ ] запустить `go test ./internal/config/... -cover` — должно пройти и остаться ≥80%
+- [ ] add a `Telegram` struct to `config.go` with fields `ChatID`, `BriefAt`, `QuietWhenClear`,
+      `PollTimeoutSec`, `State`, `ClaudeBin`, `ClaudeTimeoutSec` and yaml tags
+- [ ] add fields `Skill string` and `Telegram Telegram` to `Config`, default-value constants next to
+      the existing `Default*`
+- [ ] extend `Default()` and the fill-in logic in `Load` so that a missing `telegram:` block and a
+      missing `skill:` give defaults, not zero values
+- [ ] add `skill:` and a commented-out example `telegram:` block to `secretary.yml`
+- [ ] write tests: a full block is read; a missing block gives defaults; a partially filled block is
+      completed; broken YAML is an error
+- [ ] run `go test ./internal/config/... -cover` — must pass and stay ≥80%
 
-### Task 2: Клиент Telegram Bot API на net/http
+### Task 2: Telegram Bot API client on net/http
 
 **Files:**
 - Create: `internal/telegram/client.go`
 - Create: `internal/telegram/client_test.go`
 
-- [ ] создать `Client` с полями `Token`, `BaseURL` (по умолчанию `https://api.telegram.org`),
-      `HTTP *http.Client` — `BaseURL` полем, чтобы `httptest` подменял транспорт целиком
-- [ ] описать минимальные типы `Update{UpdateID, Message}` и `Message{MessageID, Chat{ID}, Text}` —
-      только те поля, которые бот действительно читает
-- [ ] реализовать `GetUpdates(ctx, offset, timeoutSec) ([]Update, error)` — long polling, разбор
-      конверта `{"ok":bool,"result":…,"description":…}`, `ok:false` → ошибка с текстом из
-      `description`
-- [ ] реализовать `SendMessage(ctx, chatID int64, text string) error`; резать текст на части по
-      лимиту Telegram в 4096 символов по границам строк
-- [ ] написать тесты против `httptest.Server`: успешный `GetUpdates` с двумя апдейтами; пустой
-      результат; `ok:false`; HTTP 500; `SendMessage` шлёт верное тело; длинный текст режется на две
-      части
-- [ ] запустить `go test ./internal/telegram/... -cover` — должно пройти
+- [ ] create `Client` with fields `Token`, `BaseURL` (default `https://api.telegram.org`),
+      `HTTP *http.Client` — `BaseURL` as a field so that `httptest` replaces the whole transport
+- [ ] define the minimal types `Update{UpdateID, Message}` and `Message{MessageID, Chat{ID}, Text}` —
+      only the fields the bot actually reads
+- [ ] implement `GetUpdates(ctx, offset, timeoutSec) ([]Update, error)` — long polling, parsing of
+      the `{"ok":bool,"result":…,"description":…}` envelope, `ok:false` → an error with the text
+      from `description`
+- [ ] implement `SendMessage(ctx, chatID int64, text string) error`; split the text into parts at
+      Telegram's 4096-character limit on line boundaries
+- [ ] write tests against `httptest.Server`: a successful `GetUpdates` with two updates; an empty
+      result; `ok:false`; HTTP 500; `SendMessage` sends the right body; a long text is split into
+      two parts
+- [ ] run `go test ./internal/telegram/... -cover` — must pass
 
-### Task 3: Интейк — `Classifier` и парсер ответа
+### Task 3: Intake — `Classifier` and the response parser
 
 **Files:**
 - Create: `internal/intake/intake.go`
 - Create: `internal/intake/prompt.go`
 - Create: `internal/intake/intake_test.go`
 
-- [ ] проверить реальные флаги CLI (`claude --help`) и зафиксировать выбранную форму вызова
-      комментарием — план предполагает `-p` + `--output-format json` + системный промпт и запрет
-      инструментов, но точные имена флагов сверяются с установленной версией
-- [ ] описать `Intent{Action, Reply, Task *TaskFields, Filter *Filter}` и интерфейс
+- [ ] check the real CLI flags (`claude --help`) and record the chosen invocation form in a
+      comment — the plan assumes `-p` + `--output-format json` + a system prompt and disabled
+      tools, but the exact flag names are checked against the installed version
+- [ ] define `Intent{Action, Reply, Task *TaskFields, Filter *Filter}` and the interface
       `Classifier{ Classify(ctx, text string, now time.Time) (Intent, error) }`
-- [ ] в `prompt.go` собрать системный промпт: содержимое `SKILL.md` (читается на старте, путь из
-      конфига) + приписка про «верни только JSON по схеме, инструменты не запускай» + сегодняшняя
-      дата, разделы и контексты из конфига
-- [ ] реализовать `ParseIntent([]byte) (Intent, error)` строго: неизвестный `action`, тир вне 1..3,
-      дата не в `mdstore.DateLayout`, `add` без `title` — всё это ошибки, а не «догадаемся»
-- [ ] реализовать `claudeClassifier` — `exec.CommandContext` с таймаутом из конфига; ненулевой код
-      выхода и таймаут возвращают ошибку с stderr в тексте
-- [ ] написать тесты **только на чистые части** (без запуска подпроцесса): `ParseIntent` на всех
-      четырёх `action`, на мусоре, на JSON в markdown-заборе, на тире 0 и 4, на кривой дате;
-      сборка промпта содержит текст `SKILL.md`, дату и список разделов
-- [ ] запустить `go test ./internal/intake/... -cover` — должно пройти
+- [ ] in `prompt.go` assemble the system prompt: the contents of `SKILL.md` (read at startup, path
+      from the config) + the addendum "return only JSON by the schema, do not run tools" + today's
+      date, sections and contexts from the config
+- [ ] implement `ParseIntent([]byte) (Intent, error)` strictly: an unknown `action`, a tier outside
+      1..3, a date not in `mdstore.DateLayout`, `add` without `title` — all of these are errors, not
+      "we will guess"
+- [ ] implement `claudeClassifier` — `exec.CommandContext` with the timeout from the config; a
+      non-zero exit code and a timeout return an error with stderr in the text
+- [ ] write tests **only for the pure parts** (without starting a subprocess): `ParseIntent` on all
+      four `action` values, on garbage, on JSON inside a markdown fence, on tier 0 and 4, on a
+      malformed date; prompt assembly contains the `SKILL.md` text, the date and the list of sections
+- [ ] run `go test ./internal/intake/... -cover` — must pass
 
-### Task 4: Диспетчер `bot.Handle` и рендер списка
+### Task 4: `bot.Handle` dispatcher and list renderer
 
 **Files:**
 - Create: `internal/bot/bot.go`
 - Create: `internal/bot/render.go`
 - Create: `internal/bot/bot_test.go`
 
-- [ ] создать `Bot` с полями store, cfg, persona, classifier, sender и `sync.Mutex`; интерфейс
-      `Sender{ SendMessage(ctx, chatID int64, text string) error }`, чтобы тесты не ходили в сеть
-- [ ] реализовать `Handle(ctx, upd telegram.Update, now time.Time) error`: отсев чужого `chat_id`,
-      мьютекс на весь цикл load→mutate→save, диспетчеризация по `Intent.Action`
-- [ ] ветка `add`: собрать `task.Task` из `Intent.Task`, `doc.Add` → `doc.Sort` → `Store.Save`,
-      ответ = подтверждение интейка + `brief.Build(doc, now, cfg).Text(persona)`
-- [ ] ветка `brief`: `brief.Build(…).Text(persona)`; ветка `unclear`: только `Intent.Reply`
-- [ ] в `render.go` реализовать `List(doc, now, cfg, filter) string` — плоский текст для чата
-      (глиф статуса, `!!`/`!`, заголовок, срок), без ANSI и без колонок; пустой результат даёт
-      внятную русскую фразу
-- [ ] написать тесты с фейковым `Classifier` и фейковым `Sender` на временном артефакте: `add`
-      пишет задачу и отвечает сводкой; `brief` не меняет файл; `list` фильтрует по разделу и по
-      тиру; чужой `chat_id` не пишет и не отвечает; ошибка классификатора не портит артефакт
-- [ ] написать тест на сериализацию: два `Handle` из разных горутин дают два дела и валидный файл
-      (прогнать под `-race`)
-- [ ] запустить `go test ./internal/bot/... -race -cover` — должно пройти
+- [ ] create `Bot` with fields store, cfg, persona, classifier, sender and a `sync.Mutex`; the
+      interface `Sender{ SendMessage(ctx, chatID int64, text string) error }` so that tests do not
+      touch the network
+- [ ] implement `Handle(ctx, upd telegram.Update, now time.Time) error`: reject a foreign `chat_id`,
+      hold the mutex over the whole load→mutate→save cycle, dispatch on `Intent.Action`
+- [ ] `add` branch: build a `task.Task` from `Intent.Task`, `doc.Add` → `doc.Sort` → `Store.Save`,
+      reply = intake confirmation + `brief.Build(doc, now, cfg).Text(persona)`
+- [ ] `brief` branch: `brief.Build(…).Text(persona)`; `unclear` branch: only `Intent.Reply`
+- [ ] in `render.go` implement `List(doc, now, cfg, filter) string` — flat text for the chat
+      (status glyph, `!!`/`!`, title, due date), no ANSI and no columns; an empty result gives a
+      clear phrase
+- [ ] write tests with a fake `Classifier` and a fake `Sender` on a temporary artifact: `add` writes
+      the task and replies with a briefing; `brief` does not change the file; `list` filters by
+      section and by tier; a foreign `chat_id` neither writes nor replies; a classifier error does
+      not corrupt the artifact
+- [ ] write a serialization test: two `Handle` calls from different goroutines give two duties and a
+      valid file (run under `-race`)
+- [ ] run `go test ./internal/bot/... -race -cover` — must pass
 
-### Task 5: Расписание утренней сводки и файл состояния
+### Task 5: Morning briefing schedule and state file
 
 **Files:**
 - Create: `internal/bot/schedule.go`
 - Create: `internal/bot/schedule_test.go`
 - Modify: `internal/bot/bot.go`
 
-- [ ] реализовать чистую `ShouldPush(now time.Time, at string, lastPushed time.Time) bool` — true,
-      когда `now` в тот же календарный день уже прошёл `at`, а `lastPushed` — более ранний день
-- [ ] реализовать `LoadState(path)`/`SaveState(path, date)` над маленьким JSON (`{"last_push":
-      "2026-08-30"}`); отсутствующий файл — не ошибка, запись атомарная (temp + rename), как в
+- [ ] implement the pure `ShouldPush(now time.Time, at string, lastPushed time.Time) bool` — true
+      when `now` is already past `at` on the same calendar day, and `lastPushed` is an earlier day
+- [ ] implement `LoadState(path)`/`SaveState(path, date)` over a small JSON (`{"last_push":
+      "2026-08-30"}`); a missing file is not an error, the write is atomic (temp + rename), as in
       `mdstore`
-- [ ] добавить `Bot.PushBrief(ctx, now) (sent bool, err error)`: собрать сводку, при `IsClear()` и
-      `quiet_when_clear` не слать, после успешной отправки записать дату состояния
-- [ ] написать тесты `ShouldPush`: до времени; после времени в тот же день; уже отправлено сегодня;
-      пропущенный вчерашний пуш (ноут спал); кривая строка `at` — ошибка на старте, не в цикле
-- [ ] написать тесты состояния: отсутствующий файл; битый JSON; round-trip записи и чтения
-- [ ] написать тесты `PushBrief`: спокойный день молчит при `quiet_when_clear: true` и говорит при
-      `false`; повторный вызов в тот же день не шлёт второй раз
-- [ ] запустить `go test ./internal/bot/... -cover` — должно пройти
+- [ ] add `Bot.PushBrief(ctx, now) (sent bool, err error)`: build the briefing, do not send on
+      `IsClear()` with `quiet_when_clear`, record the state date after a successful send
+- [ ] write `ShouldPush` tests: before the time; after the time on the same day; already sent today;
+      a missed push from yesterday (the laptop was asleep); a malformed `at` string — an error at
+      startup, not in the loop
+- [ ] write state tests: a missing file; broken JSON; a write-and-read round-trip
+- [ ] write `PushBrief` tests: a quiet day stays silent with `quiet_when_clear: true` and speaks
+      with `false`; a repeated call on the same day does not send a second time
+- [ ] run `go test ./internal/bot/... -cover` — must pass
 
-### Task 6: Бинарь `cmd/secretary-bot` — цикл поллинга и часы
+### Task 6: `cmd/secretary-bot` binary — polling loop and clock
 
 **Files:**
 - Create: `cmd/secretary-bot/main.go`
 - Create: `cmd/secretary-bot/main_test.go`
 - Modify: `Makefile`
 
-- [ ] написать `main.go` по образцу `cmd/secretary/main.go`: `run(args, stdout, stderr) int`, флаги
-      `--config`, `--artifact`, коды выхода `0`/`1`/`2`, русские сообщения об ошибках
-- [ ] проверки на старте: `TELEGRAM_BOT_TOKEN` задан, `telegram.chat_id != 0`, `SKILL.md` читается,
-      `brief_at` разбирается — каждая с отдельным внятным сообщением и кодом `2`
-- [ ] реализовать цикл long polling: `GetUpdates` с сохранением `offset`, экспоненциальный backoff
-      на сетевых ошибках, корректное завершение по SIGINT/SIGTERM через `context.CancelFunc`
-- [ ] реализовать горутину сводки: тик раз в минуту → `ShouldPush(time.Now(), …)` → `PushBrief`;
-      **`time.Now()` вызывается только здесь и в цикле поллинга**
-- [ ] добавить в `Makefile` цели сборки и запуска бота рядом с существующими
-- [ ] написать тесты: отсутствие токена → код `2` и сообщение; `chat_id: 0` → код `2`; нечитаемый
-      `SKILL.md` → код `2`; кривой `brief_at` → код `2`
-- [ ] написать acceptance-тест на фейковом Telegram (`httptest`) и фейковом классификаторе: один
-      апдейт «купить хлеб» → артефакт содержит новое дело → в отправленном сообщении есть
-      подтверждение; цикл завершается по отмене контекста
-- [ ] запустить `go test ./cmd/... -race` — должно пройти
+- [ ] write `main.go` modelled on `cmd/secretary/main.go`: `run(args, stdout, stderr) int`, flags
+      `--config`, `--artifact`, exit codes `0`/`1`/`2`, actionable error messages
+- [ ] startup checks: `TELEGRAM_BOT_TOKEN` is set, `telegram.chat_id != 0`, `SKILL.md` is readable,
+      `brief_at` parses — each with its own clear message and exit code `2`
+- [ ] implement the long polling loop: `GetUpdates` keeping the `offset`, exponential backoff on
+      network errors, clean shutdown on SIGINT/SIGTERM through `context.CancelFunc`
+- [ ] implement the briefing goroutine: a tick once a minute → `ShouldPush(time.Now(), …)` →
+      `PushBrief`; **`time.Now()` is called only here and in the polling loop**
+- [ ] add build and run targets for the bot to the `Makefile` next to the existing ones
+- [ ] write tests: a missing token → exit code `2` and a message; `chat_id: 0` → exit code `2`; an
+      unreadable `SKILL.md` → exit code `2`; a malformed `brief_at` → exit code `2`
+- [ ] write an acceptance test on a fake Telegram (`httptest`) and a fake classifier: one update
+      "buy bread" → the artifact contains the new duty → the sent message contains the
+      confirmation; the loop exits on context cancellation
+- [ ] run `go test ./cmd/... -race` — must pass
 
 ### Task 7: Verify acceptance criteria
 
-- [ ] проверить три сценария из Overview на фейковом транспорте: запись дела, запрос списка,
-      утренняя сводка
-- [ ] проверить краевые случаи: чужой `chat_id`, невалидный ответ Claude, недоступный Telegram,
-      пустой артефакт, сообщение длиннее 4096 символов
-- [ ] убедиться, что `cmd/secretary` и `docs/duties.md` не изменились: `git diff` по
-      `cmd/secretary/` и `internal/{mdstore,brief,schedule,grouping,voice,task}` пуст
-- [ ] убедиться, что `time.Now()` встречается ровно в `cmd/secretary/main.go` и
+- [ ] check the three scenarios from the Overview on a fake transport: adding a duty, requesting
+      the list, the morning briefing
+- [ ] check the edge cases: a foreign `chat_id`, an invalid Claude response, Telegram unavailable,
+      an empty artifact, a message longer than 4096 characters
+- [ ] make sure `cmd/secretary` and `docs/duties.md` did not change: `git diff` over
+      `cmd/secretary/` and `internal/{mdstore,brief,schedule,grouping,voice,task}` is empty
+- [ ] make sure `time.Now()` appears exactly in `cmd/secretary/main.go` and
       `cmd/secretary-bot/main.go`: `grep -rn "time.Now()" --include=*.go . | grep -v _test.go`
-- [ ] запустить полный набор: `go test ./... && go vet ./...`
-- [ ] проверить покрытие: `go test ./internal/... -cover` — все пакеты ≥80%
+- [ ] run the full suite: `go test ./... && go vet ./...`
+- [ ] check coverage: `go test ./internal/... -cover` — every package ≥80%
 
 ### Task 8: [Final] Update documentation
 
-- [ ] дописать в `README.md` раздел про бота: переменная окружения, блок конфига, запуск, что бот
-      понимает
-- [ ] обновить `docs/PHASE2.md`: пометить «Integration B» как реализованную, зафиксировать, что
-      интейк пошёл через `claude -p` с тем же `SKILL.md`, а не через Anthropic API
-- [ ] обновить `CLAUDE.md`: новые пакеты в схеме зависимостей, правило «часы в `cmd/`, не в
-      `internal/`» распространяется на второй бинарь, `SKILL.md` — единственный источник эвристик
-      для обоих фронтендов
-- [ ] переместить этот план в `docs/plans/completed/`
+- [ ] add a section about the bot to `README.md`: the environment variable, the config block, how
+      to run it, what the bot understands
+- [ ] update `docs/PHASE2.md`: mark "Integration B" as implemented, record that intake went through
+      `claude -p` with the same `SKILL.md`, not through the Anthropic API
+- [ ] update `CLAUDE.md`: new packages in the dependency diagram, the rule "clock in `cmd/`, not in
+      `internal/`" extends to the second binary, `SKILL.md` is the single source of heuristics for
+      both frontends
+- [ ] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
-*Требует ручных действий или внешних систем — без чекбоксов, справочно*
+*Requires manual steps or external systems — no checkboxes, for reference*
 
-**Регистрация и первый запуск** (обязательно перед реальным использованием):
+**Registration and first run** (required before real use):
 
-- завести бота у `@BotFather`, получить токен, положить в окружение (`TELEGRAM_BOT_TOKEN`), **не в
-  `secretary.yml`** — файл в git
-- узнать свой `chat_id`: написать боту и посмотреть `getUpdates`, либо через `@userinfobot`
-- прописать `chat_id` в `secretary.yml`, проверить, что чужие чаты действительно отвергаются
-- первый живой прогон с настоящим `claude -p`: интейк — единственная часть, которую юнит-тесты не
-  трогают, потому что подпроцесс в тестах не запускается. Прогнать вручную на 5–10 реальных фразах
-  («надо до пятницы отдать документы нотариусу», «Анна попросила отчёт», «что горит») и сверить
-  результат с тем, что даёт тот же текст через Claude Code — расхождение означает, что приписка в
-  `prompt.go` борется со `SKILL.md`
-- проверить скорость: `claude -p` отвечает секунды, не миллисекунды. Если пауза раздражает, послать
-  «печатает…» (`sendChatAction`) до вызова интейка
+- create the bot with `@BotFather`, get the token, put it into the environment
+  (`TELEGRAM_BOT_TOKEN`), **not into `secretary.yml`** — the file is in git
+- find your `chat_id`: message the bot and look at `getUpdates`, or use `@userinfobot`
+- put `chat_id` into `secretary.yml`, check that foreign chats are really rejected
+- first live run with the real `claude -p`: intake is the only part the unit tests do not touch,
+  because the subprocess is not started in tests. Run it by hand on 5–10 real phrases ("hand the
+  documents to the notary by Friday", "Dana asked for the report", "what is urgent") and compare
+  the result with what the same text gives through Claude Code — a discrepancy means the addendum
+  in `prompt.go` fights `SKILL.md`
+- check speed: `claude -p` answers in seconds, not milliseconds. If the pause is annoying, send
+  "typing…" (`sendChatAction`) before calling intake
 
-**Установка как сервис**:
+**Installing as a service**:
 
-- launchd-plist на ноуте (`KeepAlive`, рабочий каталог — корень репозитория, окружение с токеном)
-- проверить поведение при засыпании ноутбука: long polling должен пережить разрыв и переподключиться
-  backoff'ом, а пропущенная утренняя сводка — прийти при пробуждении
+- a launchd plist on the laptop (`KeepAlive`, working directory — the repository root, environment
+  with the token)
+- check behaviour when the laptop sleeps: long polling must survive the disconnect and reconnect
+  with backoff, and a missed morning briefing must arrive on wake-up
 
-**Этап 2 — VPS (отдельная задача, вне scope этого плана)**:
+**Stage 2 — VPS (a separate task, out of scope for this plan)**:
 
-- приватный git-репозиторий как слой синхронизации: бот делает commit+push после каждой записи и
-  pull перед чтением; на ноуте — обычные pull/push
-- деплой: бинарь + `claude` в PATH на сервере (интейк через `claude -p` требует установленного и
-  авторизованного Claude Code) — если это окажется неудобно, `internal/intake` меняет одну
-  реализацию `Classifier` на вызов Anthropic API, не трогая `bot` и `telegram`
-- конфликты слияния: артефакт отсортирован детерминированно, но одновременная правка в двух местах
-  всё равно даёт конфликт — нужна стратегия (например, бот всегда pull --rebase перед записью)
+- a private git repository as the sync layer: the bot does commit+push after every write and pull
+  before every read; on the laptop — ordinary pull/push
+- deployment: the binary + `claude` in PATH on the server (intake through `claude -p` requires an
+  installed and authorized Claude Code) — if that turns out to be inconvenient, `internal/intake`
+  swaps one `Classifier` implementation for a call to the Anthropic API, without touching `bot` and
+  `telegram`
+- merge conflicts: the artifact is sorted deterministically, but editing in two places at once still
+  produces a conflict — a strategy is needed (for example, the bot always does `pull --rebase`
+  before writing)
 
-**Очевидное продолжение, сознательно оставленное за рамками**:
+**The obvious continuation, deliberately left out of scope**:
 
-- `done` и `defer` из чата. Перечисление `Intent.Action` оставляет для них место, но запрос был про
-  запись, список и сводку — расширять его самовольно не стоит. Когда понадобится: одна ветка в
-  `switch`, вызов `doc.Done(id, now)` и разрешение заголовка в id тем же способом, каким это делает
-  `SKILL.md`.
+- `done` and `defer` from the chat. The `Intent.Action` enumeration leaves room for them, but the
+  request was about adding, listing and the briefing — extending it on our own initiative is not
+  right. When needed: one branch in the `switch`, a call to `doc.Done(id, now)`, and resolving a
+  title to an id the same way `SKILL.md` does.

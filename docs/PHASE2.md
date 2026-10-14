@@ -23,8 +23,8 @@ secretary --today=2026-08-27 brief --json
   "overdue":   [ /* jsonTask */ ],
   "start_now": [ /* jsonTask */ ],
   "soon":      [ /* jsonTask */ ],
-  "groups":    [ {"kind": "контекст", "key": "@город", "reason": "…", "tasks": [ /* jsonTask */ ]} ],
-  "complaints":[ {"flag": "откладывается", "task": { /* jsonTask */ }} ]
+  "groups":    [ {"kind": "context", "key": "@town", "reason": "…", "tasks": [ /* jsonTask */ ]} ],
+  "complaints":[ {"flag": "deferred", "task": { /* jsonTask */ }} ]
 }
 ```
 
@@ -50,10 +50,10 @@ editing:
 | Package | Role in phase 2 |
 |---|---|
 | `internal/config` | reads `secretary.yml`; a bot process loads it once at start |
-| `internal/task` | the `Task`/`Status` model and `объём` parsing |
+| `internal/task` | the `Task`/`Status` model and effort parsing |
 | `internal/mdstore` | `Store.Load`/`Save` over the artifact, plus `Document.Add/Done/Defer/Sort` — the atomic rename already makes concurrent writers safe enough for one bot |
 | `internal/schedule` | `LatestStart`, `Status`, `Flags` |
-| `internal/grouping` | `Build` — the "заодно" batches |
+| `internal/grouping` | `Build` — the "while you are at it" batches |
 | `internal/voice` | `Get("alfred")` — the persona is data, so a second persona is a new file here and nothing else |
 | `internal/brief` | `Build` → `Briefing`, then `.Text(persona)` or `.JSON()` |
 
@@ -69,13 +69,13 @@ below.
 **Shape.** A cron entry is enough; no new Go code is strictly required.
 
 ```cron
-0 8 * * *  cd ~/AI/secretary && secretary brief >> docs/briefings.log 2>&1
+0 8 * * *  SECRETARY_HOME=$HOME/.secretary secretary brief >> $HOME/.secretary/briefings.log 2>&1
 ```
 
 **What to decide when building it.**
 
 - *Silence on an all-clear day.* `all_clear` in the JSON says whether anything is worth a
-  notification. A daily message that is usually "ничего не горит" trains the user to ignore it;
+  notification. A daily message that is usually "nothing is on fire" trains the user to ignore it;
   prefer sending only when `all_clear` is false, and let the user pull the quiet days themselves.
 - *Repetition.* A duty that stays in `start_now` for four days produces four identical briefings.
   Keep the previous run's JSON and diff on task ids, so the message can lead with what is new.
@@ -86,8 +86,8 @@ API) does it become a small `main` calling `brief.Build(…).Text(persona)`.
 
 ## Integration B — Telegram bot
 
-**What it is.** The same secretary, reachable from a phone: the user writes «надо до пятницы отдать
-документы нотариусу», the bot files it and answers in Alfred's voice.
+**What it is.** The same secretary, reachable from a phone: the user writes «I have to hand the documents to the
+notary by Friday», the bot files it and answers in Alfred's voice.
 
 **Shape.**
 
@@ -110,10 +110,10 @@ the ask-vs-assume rule and the relative-date rule must not drift between the two
 - *Writes are serialised.* `Store` holds no state between calls — it re-parses on every command —
   and `Save` renames a temp file over the artifact. Serialise the bot's own handlers with a mutex
   and two concurrent messages cannot interleave a read-modify-write.
-- *Confirmation before writing.* The skill states its assumptions in the reply («Записал в Личное,
-  тир 1, от Марины, срок 28 августа, сэр»). A bot should do the same, and offer an inline button to
+- *Confirmation before writing.* The skill states its assumptions in the reply («Filed under Personal,
+  tier 1, from Helen, due 28 August, sir»). A bot should do the same, and offer an inline button to
   correct the tier or the date — which is `defer` and a re-`add`, not a new command.
-- *Ids in a chat.* Briefing text carries no ids on purpose. For «сделал» the bot resolves the title
+- *Ids in a chat.* Briefing text carries no ids on purpose. For «done with the report» the bot resolves the title
   against `brief --json` / `list` the same way the skill does.
 
 **Reuses:** every package in the table above, plus the artifact and `secretary.yml` untouched. A

@@ -1,190 +1,255 @@
-# secretary — Альфред
+# secretary
 
-Секретарь, который помнит ваши обязанности и говорит, что из них пора начинать сегодня.
+[![ci](https://github.com/bayanovea/secretary/actions/workflows/ci.yml/badge.svg)](https://github.com/bayanovea/secretary/actions/workflows/ci.yml)
 
-Вы пишете свободным текстом — «надо до пятницы отдать документы нотариусу, это от Марины». Навык
-Claude Code разбирает это на поля и зовёт `secretary add`. Обязанность оказывается в
-`docs/duties.md` — обычном Markdown, который можно читать и править руками.
+A command-line secretary for one person's duties. You describe an obligation in plain words,
+a Claude Code skill turns it into structured fields, and a Go binary keeps everything in one
+Markdown file you can read and edit by hand. Every morning the binary tells you, in the voice of
+a dry English butler, what has to be *started* today — not what is already late. I built it
+because my own list of errands kept failing in three ways: things were written down too late,
+noticed too late to start, and done in three trips when one would do.
 
-Что он решает:
+## How it works
 
-- мысли об обязанностях теряются раньше, чем их успевают записать;
-- важное замечают тогда, когда начинать уже поздно;
-- три дела, которые делались одной поездкой, делаются тремя.
-
-Отсюда три вещи, которых нет в обычном списке задач:
-
-1. **Дата последнего старта.** `срок − объём − запас тира`. Альфред торопит вас начать, а не
-   сообщает постфактум, что срок прошёл.
-2. **От кого задача.** У каждой обязанности есть `от:` — сама по себе просьба Марины весит иначе,
-   чем ваша собственная затея.
-3. **Группы.** Задачи с общим контекстом, общим человеком или общей меткой предлагаются пачкой:
-   «раз уж вы окажетесь @город».
-
-Тиры: **1 — критично** (последствия для других), **2 — важно** (обязательство без последствий),
-**3 — фоновое** (хорошо бы).
-
-## Установка
-
-```
-make install          # go install ./cmd/secretary → $GOBIN
-make build            # или просто ./secretary в текущем каталоге
-make test             # go test ./...
-make vet              # go vet ./...
-make fmt              # gofmt -l -w .
+```mermaid
+flowchart LR
+    U["free text<br/>“hand the documents to the<br/>notary by Friday, Helen asked”"] --> S
+    S["Claude Code skill<br/>.claude/skills/secretary/SKILL.md<br/>title · tier · from · due · effort"] -->|secretary add …| CLI
+    CLI["secretary (Go)<br/>parse → mutate → atomic save"] <--> MD[("docs/duties.md<br/>hand-editable Markdown")]
+    CLI -->|secretary brief| B["briefing<br/>overdue · start today · soon ·<br/>while you are at it"]
+    B --> V["persona (Alfred)<br/>deterministic wording"]
+    B -->|--json| J["stable JSON<br/>for other frontends"]
 ```
 
-Нужен Go 1.19 или новее. Единственная зависимость — `gopkg.in/yaml.v3`.
+The split is strict. The skill is the only fuzzy component: it reads a sentence and chooses
+flags. The binary never guesses: it computes the latest start date (`due − effort − tier buffer`),
+sorts, groups duties that share a place or a person, and phrases the result.
 
-Команды запускаются из корня репозитория: конфигурация и артефакт ищутся относительно текущего
-каталога. Из любого другого места — `secretary --config /путь/secretary.yml …`.
+## Try it in two minutes
 
-## Команды
+You need Go 1.19 or newer. The repository ships with a small synthetic artifact, dated
+14 October 2026, so the hidden `--today` flag replays that day and the output below is exactly
+what you will see.
 
-| Команда | Что делает |
+```sh
+git clone https://github.com/bayanovea/secretary && cd secretary
+go build -o secretary ./cmd/secretary
+./secretary --today=2026-10-14 brief
+```
+
+```
+Good morning, sir. It is 14 October; allow me to set out the state of affairs.
+
+Overdue:
+  · «Send the invoices to Northwind»: 4 days past due, sir. It only gets more awkward from here.
+
+Start today:
+  · Sir, it is time to begin «Collect the documents from the notary». Today, that is, not «this week».
+
+Soon:
+  · «Prepare the Q3 report» comes due for a start in 1 day, sir. Not urgent, but do not forget it either.
+
+While you are at it:
+  Since you will be at @computer anyway, sir, you might as well:
+    — T-001 «Prepare the Q3 report» · tier 1 · due 2026-10-20
+    — T-005 «Sort out the home insurance» · tier 1
+    — T-008 «File the quarterly tax return» · tier 1 · due 2026-11-15
+  Since you will be at @town anyway, sir, you might as well:
+    — T-002 «Collect the documents from the notary» · tier 1 · due 2026-10-17
+    — T-003 «Buy Helen a birthday present» · tier 2 · due 2026-10-24
+    — T-006 «Pick up the parcel from the post office» · tier 3
+  …
+
+Separately:
+  · «Send the invoices to Northwind» has been deferred 2 times already, sir. At some point that stops being a schedule and becomes a decision.
+
+Open: Critical — 4 · Important — 3 · Background — 3.
+At your service, sir.
+```
+
+Then add a duty, mark one done, and look at the file:
+
+```sh
+./secretary --today=2026-10-14 add --title "Renew the passport" --tier 1 --from self \
+    --due 2026-11-20 --effort 2h --section Personal --context @town --labels documents
+./secretary --today=2026-10-14 done T-004
+./secretary --today=2026-10-14 list
+cat docs/duties.md
+```
+
+`list` prints aligned columns with a status glyph, `!!`/`!` tier marks, the deadline as a person
+would say it (`yesterday`, `Sat 17 Oct`) and the checklist under each duty. The same information
+is in `docs/duties.md`, which `cat` shows is ordinary Markdown with a `tier:… · from:… · due:…`
+line under each item. `go test ./...` runs the whole suite in a few seconds.
+
+To use it for real, keep your data outside the checkout: `export SECRETARY_HOME=$HOME/.secretary`
+with your own `secretary.yml` and artifact there. The skill works from any Claude Code session
+opened in the repository.
+
+## Design decisions
+
+**The latest start date is the product, not the deadline.** Every other list warns you when a
+deadline has passed. This one computes `due − effort − buffer(tier)` and nags from that day on, so
+a report that takes three days is raised three days plus a margin before Friday. Cost: the user has
+to estimate effort, and a tier-1 duty without one makes Alfred complain in every briefing until it
+is fixed. That complaint is deliberate.
+
+**One Markdown file is the whole state.** No database, no server, no daemon. The file is
+hand-editable, diffable, and survives the program being deleted. The parser is forgiving about
+spacing and unknown lines, strict about tiers, dates and efforts, and drops everything the renderer
+generates (status hints, the `Updated:` line), so `parse(render(parse(x))) == parse(x)` is a
+fixed point asserted by a round-trip test. Cost: no concurrent writers beyond atomic
+temp-file-and-rename, and no history beyond git.
+
+**The AI layer is a Claude Code skill, and it is the only fuzzy component.** `SKILL.md` holds the
+persona, the tier heuristics, the ask-versus-assume rule and relative-date resolution, and turns a
+sentence into `secretary add` flags. It never computes a date and never touches the file. The
+binary accepts absolute dates only, so a misread "Friday" is visible in the reply rather than
+buried in arithmetic. Tests check that the skill still documents every subcommand and every
+`add` flag, so the prompt cannot drift from the CLI it drives. Cost: the free-text intake needs
+Claude Code; without it the tool is a plain CLI.
+
+**No package reads the clock.** `time.Now()` appears once, in `main.go`, truncated to a UTC day;
+everything else takes `now` as a parameter. Same file plus same day gives byte-identical output,
+which is what makes golden-file tests meaningful and lets a scheduler tell "nothing changed" from
+"something new is on fire". Cost: a hidden `--today` flag that must exist and must stay out of the
+usage text.
+
+**The persona is data, and its wording is deterministic.** `voice.Persona` is an interface;
+Alfred is one file. A phrase variant is chosen by an FNV hash of the facts it describes (duty id,
+day), never by `math/rand`, so Alfred says the same thing twice on the same day and something
+different tomorrow. `brief` decides *what* is said and in which order; `voice` decides *how*. No
+sentence about a duty lives in `brief`, no scheduling decision lives in `voice`. Cost: a second
+language or a second butler is a new file, but a new *kind* of remark changes the interface.
+
+**Tests are the gate, not the documentation.** Logic packages sit above 80% coverage with table
+tests; the two format-shaped outputs (the artifact, the briefing) have golden files regenerated
+with `-update` and reviewed as a diff; the CLI has an acceptance suite that drives the built
+binary through the README's own claims, including the hand-editing guarantee. Exit codes separate
+"you called it wrong" (2) from "it refused on the merits" (1) so a script can tell the two apart.
+
+## Status and limits
+
+Phase 1 works and I use it daily: the CLI, the skill, the artifact, recurring duties through
+`launchd` (see [docs/RECURRING.md](docs/RECURRING.md)). Alfred's register is deliberately
+old-fashioned, and that is a taste, not a bug.
+
+What is rough: the effort model is one number, so a duty blocked on someone else's response is
+either over-estimated or left without an effort; grouping is greedy, one duty joins the first batch
+that claims it; the persona interface has grown method by method and would be cleaner as a small
+set of event types. The Telegram bot is designed in [docs/PHASE2.md](docs/PHASE2.md) and
+implemented on a private branch, but is not part of this repository yet.
+
+What I would do differently: start with `brief --json` as the contract and treat the text as one
+renderer of it, rather than arriving there after the fact; and make the artifact's field keys a
+versioned schema from day one, since changing them is a format change that touches five places.
+
+<details>
+<summary>Commands and flags</summary>
+
+| Command | What it does |
 |---|---|
-| `secretary add --title "…" --tier N --from "…" [--due ГГГГ-ММ-ДД] [--effort Nч\|Nд\|Nн] [--section "…"] [--labels "a, b"] [--context @место] [--note "…"] [--step "…"]` | записать обязанность; печатает выданный идентификатор |
-| `secretary brief [--json]` | сводка: просрочено, начинать сегодня, скоро, группы, замечания |
-| `secretary list [--tier N] [--section S] [--label L] [--context @C] [--sort date\|tier] [--color auto\|always\|never]` | отфильтрованный список открытых обязанностей: колонками, со значками статуса и `!!`/`!` для тира; по умолчанию — по срокам |
-| `secretary step <id> [--add "…"] [--check N] [--uncheck N] [--drop N]` | подпункты-чекбоксы внутри дела; без флагов — показать их, пронумерованными |
-| `secretary step <id> --set N [--tier 1..3\|-] [--due ГГГГ-ММ-ДД\|-]` | тир и срок отдельного подпункта; `-` снимает поле |
-| `secretary done <id>` | перенести в `## Сделано` с датой `выполнено:` |
-| `secretary defer <id> --due ГГГГ-ММ-ДД` | сдвинуть срок; `переносов:` увеличивается сам |
-| `secretary fmt` | перечитать, пересчитать подсказки, пересортировать, переписать артефакт |
-| `secretary check` | проверить, что артефакт читается, и назвать обязанности с неполными данными |
-| `secretary archive` | убрать выполненное старше 30 дней в архивный файл |
+| `secretary add --title "…" --tier N --from "…" [--due YYYY-MM-DD] [--effort Nh\|Nd\|Nw] [--section "…"] [--labels "a, b"] [--context @place] [--note "…"] [--step "…"]` | record a duty; prints the assigned identifier |
+| `secretary brief [--json]` | the briefing: overdue, start today, soon, groups, complaints |
+| `secretary list [--tier N] [--section S] [--label L] [--context @C] [--sort date\|tier] [--color auto\|always\|never]` | open duties in aligned columns, by deadline by default |
+| `secretary step <id> [--add "…"] [--check N] [--uncheck N] [--drop N]` | checkbox steps inside a duty; no flags shows them numbered |
+| `secretary step <id> --set N [--tier 1..3\|-] [--due YYYY-MM-DD\|-]` | a step's own tier and deadline; `-` clears the field |
+| `secretary done <id>` | move into `## Done` with a `done:` date |
+| `secretary defer <id> --due YYYY-MM-DD` | move the deadline; `deferrals:` is counted automatically |
+| `secretary fmt` | re-read, recompute hints, re-sort, rewrite the artifact |
+| `secretary check` | verify the artifact parses and name duties with incomplete data |
+| `secretary archive` | move duties completed more than 30 days ago into the archive file |
 
-Глобальные флаги: `--config PATH`, `--artifact PATH`. Работают и до имени команды, и после.
-`--note` и `--step` можно повторять — по одной заметке (подпункту) на флаг.
+Global flags: `--config PATH`, `--artifact PATH`, before or after the command name. `--note` and
+`--step` may be repeated. Exit codes: `0` done, `1` refused on the merits, `2` called wrong.
 
-Коды возврата: `0` — сделано, `1` — отказ по существу (нет такой задачи, артефакт не читается),
-`2` — неверный вызов.
+Environment: `SECRETARY_HOME` is the directory holding a private `secretary.yml` and artifact;
+relative paths in that configuration resolve against it. `NO_COLOR` disables colour in `list`.
+There are no secrets.
 
-Есть ещё скрытый `--today=ГГГГ-ММ-ДД`: он подменяет дату и существует ради воспроизводимости
-тестов, а не для повседневного употребления.
+</details>
 
-Пример:
-
-```
-$ secretary add --title "Забрать документы у нотариуса" --tier 1 --from Марина \
-    --due 2026-08-29 --effort 1ч --section Личное --context @город --labels "переезд, документы"
-T-002
-
-$ secretary brief
-Сэр. Сводка на 27 августа, если вы уже в состоянии её выслушать.
-
-Начинать сегодня:
-  · Если «Забрать документы у нотариуса» не начать сегодня, сэр, то к сроку мы придём
-    с извинениями вместо результата.
-
-Заодно:
-  Раз уж вы окажетесь @город, сэр, — заодно:
-    — T-002 «Забрать документы у нотариуса» · тир 1 · срок 2026-08-29
-    — T-003 «Купить подарок Марине» · тир 2 · срок 2026-09-01
-
-Открыто: Критично — 2 · Важно — 1 · Фоновое — 0.
-К вашим услугам, сэр.
-```
-
-Текст сводки намеренно без идентификаторов — Альфред не диктует артикулы. Если нужен `id`,
-возьмите его из `secretary list` или `brief --json`.
-
-## Артефакт
-
-`docs/duties.md` — единственное хранилище. Базы нет.
+<details>
+<summary>The artifact format</summary>
 
 ```markdown
-# Обязанности
+# Duties
 
 <!-- secretary:v1 -->
-> Обновлено: 2026-08-27 · К вашим услугам, сэр.
+> Updated: 2026-10-14 · At your service, sir.
 
-## Личное
+## Personal
 
-- [ ] `T-002` **Забрать документы у нотариуса**
-  тир:1 · от:Марина · срок:2026-08-29 · объём:1ч · контекст:@город · создано:2026-08-27
-  метки: переезд, документы
-  > звонить после обеда, утром там очередь
-  - [x] позвонить, записаться · тир:1 · срок:2026-08-28
-  - [ ] съездить и забрать
-  🔴 начать не позже 2026-08-26
+- [ ] `T-002` **Collect the documents from the notary**
+  tier:1 · from:Helen · due:2026-10-17 · effort:2h · context:@town · created:2026-10-09
+  labels: paperwork, documents
+  > notary is open until 18:00, mornings are crowded
+  - [x] call and book a slot · tier:1 · due:2026-10-13
+  - [ ] go and collect
+  🔴 start by 2026-10-14
 
-## Сделано
+## Done
 
-- [x] `T-000` **Оплатить страховку** · выполнено:2026-08-20
+- [x] `T-000` **Pay the internet bill** · done:2026-10-03
 ```
 
-Строка полей — пары `ключ:значение` через ` · `:
-
-| Ключ | Обязателен | Формат | Примечание |
+| Key | Required | Format | Note |
 |---|---|---|---|
-| `тир` | да | `1` \| `2` \| `3` | |
-| `от` | да | текст | `себя`, если задача ваша собственная |
-| `срок` | нет | `ГГГГ-ММ-ДД` | без него статус «без срока» |
-| `объём` | нет | `Nч` \| `Nд` \| `Nн` | часы / дни / недели; нужен для даты старта |
-| `контекст` | нет | `@слово` | главный ключ группировки |
-| `переносов` | нет | число | растёт при `defer` |
-| `создано` | авто | `ГГГГ-ММ-ДД` | пишется при `add`, по нему считается «забыто» |
+| `tier` | yes | `1` \| `2` \| `3` | 1 critical (consequences for others), 2 important, 3 background |
+| `from` | yes | text | `self` when nobody else asked |
+| `due` | no | `YYYY-MM-DD` | without it the status is "no deadline" |
+| `effort` | no | `Nh` \| `Nd` \| `Nw` | working hours, days or weeks; needed for the start date |
+| `context` | no | `@word` | the main grouping key |
+| `deferrals` | no | number | grows on `defer` |
+| `created` | auto | `YYYY-MM-DD` | written by `add`; "stale" is measured from it |
 
-`метки:` — отдельная строка, через запятую. Строки с `>` — свободные заметки. Строки вида
-`- [ ] текст` внутри блока — подпункты: части одного и того же дела. Свои `тир:` и `срок:`
-дописываются в хвост строки через ` · ` — звонок, которым дело открывается, обычно срочнее самого
-дела; остальные поля (объём, контекст, метки) у подпункта отсутствуют. Их можно ставить и снимать
-руками или командой `step`; `list` показывает счёт (`подпункты 1/2`) и разворачивает сам чек-лист
-под задачей, **а в сводку `brief` подпункты по-прежнему не попадают** — срок подпункта виден в
-`list`, но не напоминает о себе сам. Если у части появляется собственный объём или контекст — это
-уже отдельная задача, а не подпункт. Строки с глифами
-(🔴 ⏰ 💤) — вычисляемые подсказки: они выбрасываются при чтении и пишутся заново при каждой
-записи, так что править их бессмысленно.
+`labels:` is a separate comma-separated line. Lines starting with `>` are free notes. `- [ ]`
+lines inside a block are steps of the same duty; a step may carry its own `tier:` and `due:` at
+the end of its line, nothing else. Lines starting with 🔴 ⏰ 🟡 💤 are computed hints: they are
+dropped on read and rewritten on every save, so editing them is pointless.
 
-Разделы, контексты, тиры и окна задаются в `secretary.yml`. Раздел, которого нет в конфигурации,
-не ошибка: артефакт сохранит его как есть, а `check` о нём напомнит.
+Sections, contexts, tiers and windows come from `secretary.yml`; every key has a default, so the
+file may be absent. A section that is not configured is not an error: the artifact keeps it and
+`check` mentions it.
 
-| Ключ | Что задаёт |
+| Key | Meaning |
 |---|---|
-| `persona` | чьим голосом говорит сводка; пока есть только `alfred` |
-| `artifact` | путь к артефакту, по умолчанию `docs/duties.md` |
-| `archive` | куда `archive` уносит выполненное старше 30 дней |
-| `sections` | разделы и их порядок; первый — раздел по умолчанию для `add` |
-| `contexts` | известные контексты (`@город`, `@телефон`…) — главный ключ группировки |
-| `tiers` | название тира и его запас: `buffer_min_days` и `buffer_ratio` |
-| `soon_window_days` | за сколько дней до даты старта задача попадает в «скоро» |
-| `stale_days` | сколько задача может пролежать без срока, прежде чем Альфред о ней напомнит |
+| `persona` | whose voice the briefing uses; only `alfred` exists |
+| `artifact` | path to the artifact, default `docs/duties.md` |
+| `archive` | where `archive` moves duties completed more than 30 days ago |
+| `sections` | sections and their order; the first is the default for `add` |
+| `contexts` | known contexts (`@town`, `@phone`…) |
+| `tiers` | name and buffer per tier: `buffer_min_days`, `buffer_ratio` |
+| `soon_window_days` | how many days before the start date a duty becomes "soon" |
+| `stale_days` | how long a duty may sit without a deadline before Alfred mentions it |
 
-Файла может не быть: каждое поле имеет значение по умолчанию, и `secretary` работает в пустом
-каталоге.
+</details>
 
-## Правка руками
+<details>
+<summary>Editing by hand</summary>
 
-Файл на то и Markdown. Правила простые:
+- Change anything except the `` `T-00N` `` identifier: it is how `done` and `defer` find a duty.
+  A duty added by hand may have no identifier at all; `fmt` assigns one.
+- Steps are plain Markdown: add a `- [ ] …` line under a duty or turn `[ ]` into `[x]`. An empty
+  checkbox with no text is a parse error.
+- Run `secretary fmt` after editing. It keeps the heading, your notes and unconfigured sections
+  verbatim. It deliberately drops two things: hint lines, which it recomputes, and field keys it
+  does not know.
+- `secretary check` reports whether the file parses without touching it. If `check` complains,
+  fix the line it names before running `fmt`.
 
-- **Меняйте что угодно, кроме `` `T-00N` ``.** Идентификатор — то, чем `done` и `defer` находят
-  задачу; новым задачам, дописанным руками, id можно не давать вовсе — `fmt` его выдаст.
-- **Подпункты правятся как обычный Markdown**: дописать строку `- [ ] …` под задачей или заменить
-  `[ ]` на `[x]` — законная правка, `fmt` её сохранит. Пустой чекбокс без текста — ошибка разбора.
-  Хвост `· тир:1 · срок:2026-09-01` читается как поля подпункта; `·` в самом тексте безопасен —
-  разбор останавливается на первом сегменте, который не является известным ключом.
-- **После правки запустите `secretary fmt`.** Он перечитает файл, пересчитает подсказки,
-  пересортирует разделы и запишет обратно. Заголовок, ваши строки заметок (`>`) и разделы вне
-  конфигурации сохраняются дословно. Две вещи он снимает намеренно: строки-подсказки
-  (🔴 ⏰ 🟡 💤) — они генерируются заново на каждую дату, поэтому переписанная руками подсказка
-  исчезнет; и ключи полей, которых он не знает, — в строке `тир:… · от:…` выживает только
-  описанный выше набор.
-- **`secretary check`** скажет, читается ли файл, не трогая его. Если после ваших правок `check`
-  ругается, `fmt` запускать не надо: сначала почините строку, на которую он указал.
+Writes are atomic: the file is written to a temporary name and renamed over the original, so an
+interrupted command leaves the previous artifact intact.
 
-Запись атомарна: файл пишется во временный и переименовывается поверх, так что оборвавшаяся
-команда оставляет прежний артефакт целым. Гарантия сохранности — тест round-trip:
-`parse(render(parse(x))) == parse(x)`. Что бы `fmt` ни сделал с оформлением, данные он не теряет.
+</details>
 
-## Навык Claude Code
+<details>
+<summary>More</summary>
 
-`.claude/skills/secretary/SKILL.md` — тот самый слой свободного текста. Он держит персону,
-правила классификации (тир, объём, раздел) и разрешение относительных дат («до пятницы» → дата),
-а всю арифметику оставляет бинарнику. Правило простое: навык предполагает и проговаривает
-предположение вслух, а спрашивает — только когда срок или заказчик из текста не восстановить.
+- [docs/RECURRING.md](docs/RECURRING.md) — recurring duties live in cron or launchd, not in the tool.
+- [docs/PHASE2.md](docs/PHASE2.md) — the `brief --json` seam and the two deferred frontends.
+- [docs/plans/](docs/plans/) — the implementation plans the work was done from.
+- [CLAUDE.md](CLAUDE.md) — the conventions the tests depend on.
+- [LICENSE](LICENSE) — MIT.
 
-## Дальше
-
-`docs/PHASE2.md` — две отложенные интеграции поверх `brief --json`: ежедневная сводка по
-расписанию и бот в Telegram.
+</details>

@@ -32,7 +32,7 @@ You need Go 1.19 or newer. The repository ships with a small synthetic artifact,
 what you will see.
 
 ```sh
-git clone https://github.com/bayanovea/ai-secretary && cd secretary
+git clone https://github.com/bayanovea/ai-secretary && cd ai-secretary
 go build -o secretary ./cmd/secretary
 ./secretary --today=2026-10-14 brief
 ```

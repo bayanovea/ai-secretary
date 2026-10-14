@@ -13,31 +13,31 @@ import (
 
 // acceptanceWorkspace seeds the duties the requirement tests read. The dates are
 // chosen so that the advance-start nudge can be observed on an exact day:
-// «Согласовать смету» is тир 2, срок 2026-09-10, объём 2д, so its buffer is
+// «Approve the budget» is tier 2, due 2026-09-10, effort 2d, so its buffer is
 // max(1, 0.25·2) = 1 day, its lead is 3 days, and its latest start is 2026-09-07
 // — three days before the deadline, which is the whole point of the feature.
 func acceptanceWorkspace(t *testing.T) *workspace {
 	t.Helper()
 	w := newWorkspace(t)
 
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Согласовать смету", "--tier=2",
-		"--from=Анна Петрова", "--due=2026-09-10", "--effort=2д", "--section=Работа",
-		"--context=@компьютер", "--labels=финансы")
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Забрать документы у нотариуса", "--tier=1",
-		"--from=Марина", "--due=2026-09-04", "--effort=2ч", "--section=Личное",
-		"--context=@город", "--labels=переезд, документы", "--note=взять паспорт")
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Купить подарок Марине", "--tier=2",
-		"--from=себя", "--due=2026-09-12", "--effort=1ч", "--section=Личное",
-		"--context=@город", "--labels=отношения")
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Разобрать антресоль", "--tier=3",
-		"--from=себя", "--section=Дом", "--context=@дом")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Approve the budget", "--tier=2",
+		"--from=Dana Whitfield", "--due=2026-09-10", "--effort=2d", "--section=Work",
+		"--context=@computer", "--labels=finance")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Collect the documents from the notary", "--tier=1",
+		"--from=Helen", "--due=2026-09-04", "--effort=2h", "--section=Personal",
+		"--context=@town", "--labels=paperwork, documents", "--note=bring the passport")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Buy Helen a present", "--tier=2",
+		"--from=self", "--due=2026-09-12", "--effort=1h", "--section=Personal",
+		"--context=@town", "--labels=relationships")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Clear out the attic", "--tier=3",
+		"--from=self", "--section=Home", "--context=@home")
 	return w
 }
 
 // briefBlock returns the lines of one section of a briefing — everything from
 // its heading to the next blank line. Assertions about a bucket have to be
-// scoped to that bucket, or «просрочено» somewhere in the file passes for
-// «просрочено» in the task under test.
+// scoped to that bucket, or «overdue» somewhere in the file passes for
+// «overdue» in the task under test.
 func briefBlock(out, heading string) string {
 	start := strings.Index(out, heading)
 	if start < 0 {
@@ -55,98 +55,98 @@ func briefBlock(out, heading string) string {
 func TestAcceptanceOverviewRequirements(t *testing.T) {
 	w := acceptanceWorkspace(t)
 
-	t.Run("три тира", func(t *testing.T) {
+	t.Run("three tiers", func(t *testing.T) {
 		for tier, want := range map[string]string{
-			"1": "Забрать документы у нотариуса",
-			"2": "Согласовать смету",
-			"3": "Разобрать антресоль",
+			"1": "Collect the documents from the notary",
+			"2": "Approve the budget",
+			"3": "Clear out the attic",
 		} {
 			out := w.mustRun(t, "--today=2026-08-27", "list", "--tier="+tier)
 			if !strings.Contains(out, want) {
-				t.Errorf("list --tier=%s не показал %q:\n%s", tier, want, out)
+				t.Errorf("list --tier=%s did not show %q:\n%s", tier, want, out)
 			}
 		}
 		artifact := w.read(t, w.artifact)
-		for _, want := range []string{"тир:1", "тир:2", "тир:3"} {
+		for _, want := range []string{"tier:1", "tier:2", "tier:3"} {
 			if !strings.Contains(artifact, want) {
-				t.Errorf("артефакт не хранит %q:\n%s", want, artifact)
+				t.Errorf("artifact does not store %q:\n%s", want, artifact)
 			}
 		}
 	})
 
-	t.Run("от кого задача", func(t *testing.T) {
+	t.Run("who the duty is from", func(t *testing.T) {
 		artifact := w.read(t, w.artifact)
-		for _, want := range []string{"от:Марина", "от:Анна Петрова", "от:себя"} {
+		for _, want := range []string{"from:Helen", "from:Dana Whitfield", "from:self"} {
 			if !strings.Contains(artifact, want) {
-				t.Errorf("артефакт не хранит %q:\n%s", want, artifact)
+				t.Errorf("artifact does not store %q:\n%s", want, artifact)
 			}
 		}
-		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "от Марина") {
-			t.Errorf("list не показывает заказчика:\n%s", out)
+		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "from Helen") {
+			t.Errorf("list does not show the assignor:\n%s", out)
 		}
 	})
 
-	t.Run("срок и дата последнего старта", func(t *testing.T) {
-		// За день до последнего старта — «скоро», в самый день — «пора
-		// начинать», и срок при этом ещё впереди: подгоняют заранее.
-		early := w.mustRun(t, "--today=2026-09-06", "list", "--tier=2", "--section=Работа")
-		if !strings.Contains(early, "скоро") {
-			t.Errorf("за день до последнего старта статус не «скоро»:\n%s", early)
+	t.Run("deadline and latest start date", func(t *testing.T) {
+		// The day before the latest start — «soon», on the day — «start
+		// now», while the deadline is still ahead: the nudge comes early.
+		early := w.mustRun(t, "--today=2026-09-06", "list", "--tier=2", "--section=Work")
+		if !strings.Contains(early, "soon") {
+			t.Errorf("the day before the latest start the status is not «soon»:\n%s", early)
 		}
 
 		out := w.mustRun(t, "--today=2026-09-07", "brief")
-		if !strings.Contains(briefBlock(out, "Начинать сегодня:"), "Согласовать смету") {
-			t.Errorf("сводка не подняла задачу в день последнего старта:\n%s", out)
+		if !strings.Contains(briefBlock(out, "Start today:"), "Approve the budget") {
+			t.Errorf("the briefing did not raise the task on its latest start day:\n%s", out)
 		}
-		// Подгоняют заранее, а не постфактум: срок 2026-09-10 ещё впереди.
-		if strings.Contains(briefBlock(out, "Просрочено:"), "Согласовать смету") {
-			t.Errorf("задача с будущим сроком объявлена просроченной:\n%s", out)
-		}
-	})
-
-	t.Run("разделы и метки", func(t *testing.T) {
-		section := w.mustRun(t, "--today=2026-08-27", "list", "--section=Личное")
-		if !strings.Contains(section, "Забрать документы у нотариуса") ||
-			strings.Contains(section, "Согласовать смету") {
-			t.Errorf("фильтр по разделу не сработал:\n%s", section)
-		}
-		label := w.mustRun(t, "--today=2026-08-27", "list", "--label=переезд")
-		if !strings.Contains(label, "Забрать документы у нотариуса") ||
-			strings.Contains(label, "Купить подарок Марине") {
-			t.Errorf("фильтр по метке не сработал:\n%s", label)
+		// The nudge comes early, not after the fact: 2026-09-10 is still ahead.
+		if strings.Contains(briefBlock(out, "Overdue:"), "Approve the budget") {
+			t.Errorf("a task with a future deadline was declared overdue:\n%s", out)
 		}
 	})
 
-	t.Run("группы «заодно»", func(t *testing.T) {
+	t.Run("sections and labels", func(t *testing.T) {
+		section := w.mustRun(t, "--today=2026-08-27", "list", "--section=Personal")
+		if !strings.Contains(section, "Collect the documents from the notary") ||
+			strings.Contains(section, "Approve the budget") {
+			t.Errorf("section filter did not work:\n%s", section)
+		}
+		label := w.mustRun(t, "--today=2026-08-27", "list", "--label=paperwork")
+		if !strings.Contains(label, "Collect the documents from the notary") ||
+			strings.Contains(label, "Buy Helen a present") {
+			t.Errorf("label filter did not work:\n%s", label)
+		}
+	})
+
+	t.Run("«while you are at it» groups", func(t *testing.T) {
 		out := w.mustRun(t, "--today=2026-09-02", "brief")
-		if !strings.Contains(out, "Заодно:") || !strings.Contains(out, "@город") {
-			t.Errorf("сводка не предложила общий выход в город:\n%s", out)
+		if !strings.Contains(out, "While you are at it:") || !strings.Contains(out, "@town") {
+			t.Errorf("the briefing did not propose one trip to town:\n%s", out)
 		}
-		for _, want := range []string{"Забрать документы у нотариуса", "Купить подарок Марине"} {
+		for _, want := range []string{"Collect the documents from the notary", "Buy Helen a present"} {
 			if !strings.Contains(out, want) {
-				t.Errorf("в группе нет %q:\n%s", want, out)
+				t.Errorf("group lacks %q:\n%s", want, out)
 			}
 		}
 	})
 
-	t.Run("голос Альфреда", func(t *testing.T) {
+	t.Run("Alfred's voice", func(t *testing.T) {
 		out := w.mustRun(t, "--today=2026-09-07", "brief")
-		if !strings.Contains(out, "сэр") {
-			t.Errorf("сводка звучит не по-альфредовски:\n%s", out)
+		if !strings.Contains(out, "sir") {
+			t.Errorf("the briefing does not sound like Alfred:\n%s", out)
 		}
-		// Одна и та же дата — одна и та же формулировка: без math/rand.
+		// Same date, same wording: no math/rand.
 		if again := w.mustRun(t, "--today=2026-09-07", "brief"); again != out {
-			t.Errorf("сводка не воспроизводима:\n--- раз ---\n%s\n--- два ---\n%s", out, again)
+			t.Errorf("the briefing is not reproducible:\n--- first ---\n%s\n--- second ---\n%s", out, again)
 		}
 	})
 
-	t.Run("свободный текст", func(t *testing.T) {
-		// Разбор свободного текста живёт в навыке, а не в бинарнике: проверяем,
-		// что он описывает переход «фраза → флаги» и обязан звать brief.
+	t.Run("free text", func(t *testing.T) {
+		// Free-text parsing lives in the skill, not in the binary: check that
+		// it describes the «phrase → flags» step and is obliged to call brief.
 		skill := readSkill(t)
 		for _, want := range []string{"secretary add", "secretary brief", "--title", "--tier", "--from", "--due"} {
 			if !strings.Contains(skill, want) {
-				t.Errorf("навык не описывает %q", want)
+				t.Errorf("the skill does not describe %q", want)
 			}
 		}
 	})
@@ -155,102 +155,102 @@ func TestAcceptanceOverviewRequirements(t *testing.T) {
 // TestAcceptanceEdgeCases covers the states the artifact can legitimately be in
 // and the ones it must refuse.
 func TestAcceptanceEdgeCases(t *testing.T) {
-	t.Run("без срока", func(t *testing.T) {
+	t.Run("no deadline", func(t *testing.T) {
 		w := newWorkspace(t)
-		w.mustRun(t, "--today=2026-08-27", "add", "--title=Когда-нибудь разобрать гараж",
-			"--tier=3", "--section=Дом")
+		w.mustRun(t, "--today=2026-08-27", "add", "--title=Clear out the garage some day",
+			"--tier=3", "--section=Home")
 
-		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "без срока") {
-			t.Errorf("задача без срока показана иначе:\n%s", out)
+		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "no deadline") {
+			t.Errorf("a task without a deadline is shown differently:\n%s", out)
 		}
 		out := w.mustRun(t, "--today=2026-08-27", "brief")
-		for _, unwanted := range []string{"Просрочено:", "Начинать сегодня:", "Скоро:"} {
+		for _, unwanted := range []string{"Overdue:", "Start today:", "Soon:"} {
 			if strings.Contains(out, unwanted) {
-				t.Errorf("задача без срока попала в %q:\n%s", unwanted, out)
+				t.Errorf("a task without a deadline landed in %q:\n%s", unwanted, out)
 			}
 		}
 	})
 
-	t.Run("без объёма", func(t *testing.T) {
+	t.Run("no effort", func(t *testing.T) {
 		w := newWorkspace(t)
-		w.mustRun(t, "--today=2026-08-27", "add", "--title=Сдать отчёт", "--tier=1",
-			"--from=Босс", "--due=2026-08-28", "--section=Работа")
+		w.mustRun(t, "--today=2026-08-27", "add", "--title=Hand in the report", "--tier=1",
+			"--from=The boss", "--due=2026-08-28", "--section=Work")
 
-		// Без объёма даты последнего старта нет, и её место занимает срок.
-		if out := w.mustRun(t, "--today=2026-08-28", "brief"); !strings.Contains(out, "Начинать сегодня:") {
-			t.Errorf("без объёма срок не подменил дату старта:\n%s", out)
+		// Without an effort there is no latest start date, and the deadline takes its place.
+		if out := w.mustRun(t, "--today=2026-08-28", "brief"); !strings.Contains(out, "Start today:") {
+			t.Errorf("without an effort the deadline did not stand in for the start date:\n%s", out)
 		}
-		if out := w.mustRun(t, "--today=2026-08-27", "check"); !strings.Contains(out, "Неполные данные: T-001") {
-			t.Errorf("check не заметил тир-1 без объёма:\n%s", out)
+		if out := w.mustRun(t, "--today=2026-08-27", "check"); !strings.Contains(out, "Incomplete data: T-001") {
+			t.Errorf("check missed a tier-1 without an effort:\n%s", out)
 		}
 	})
 
-	t.Run("неизвестный раздел", func(t *testing.T) {
+	t.Run("unknown section", func(t *testing.T) {
 		w := newWorkspace(t)
-		_, stderr, code := w.run(t, "--today=2026-08-27", "add", "--title=Помыть машину",
-			"--tier=3", "--section=Гараж")
+		_, stderr, code := w.run(t, "--today=2026-08-27", "add", "--title=Wash the car",
+			"--tier=3", "--section=Garage")
 		if code == 0 {
-			t.Fatal("add в раздел вне конфигурации должен падать")
+			t.Fatal("add into an unconfigured section must fail")
 		}
-		if !strings.Contains(stderr, "Гараж") {
-			t.Errorf("ошибка не называет раздел: %q", stderr)
+		if !strings.Contains(stderr, "Garage") {
+			t.Errorf("the error does not name the section: %q", stderr)
 		}
 
-		// Но раздел, уже написанный руками, файл не ломает: check о нём
-		// сообщает и возвращает ноль.
-		w.write(t, w.artifact, "# Обязанности\n\n## Гараж\n\n- [ ] `T-007` **Поменять масло**\n"+
-			"  тир:3 · от:себя · создано:2026-08-01\n\n## Сделано\n")
+		// But a section already written by hand does not break the file: check
+		// reports it and returns zero.
+		w.write(t, w.artifact, "# Duties\n\n## Garage\n\n- [ ] `T-007` **Change the oil**\n"+
+			"  tier:3 · from:self · created:2026-08-01\n\n## Done\n")
 		out := w.mustRun(t, "--today=2026-08-27", "check")
-		if !strings.Contains(out, "Разделы вне конфигурации: Гараж") {
-			t.Errorf("check не отметил чужой раздел:\n%s", out)
+		if !strings.Contains(out, "Sections outside the configuration: Garage") {
+			t.Errorf("check did not flag the foreign section:\n%s", out)
 		}
 	})
 
-	t.Run("повторяющиеся идентификаторы", func(t *testing.T) {
+	t.Run("duplicate identifiers", func(t *testing.T) {
 		w := newWorkspace(t)
-		w.write(t, w.artifact, "# Обязанности\n\n## Работа\n\n"+
-			"- [ ] `T-001` **Первая**\n  тир:2 · от:себя · создано:2026-08-01\n\n"+
-			"- [ ] `T-001` **Вторая**\n  тир:2 · от:себя · создано:2026-08-02\n")
+		w.write(t, w.artifact, "# Duties\n\n## Work\n\n"+
+			"- [ ] `T-001` **First**\n  tier:2 · from:self · created:2026-08-01\n\n"+
+			"- [ ] `T-001` **Second**\n  tier:2 · from:self · created:2026-08-02\n")
 
 		_, stderr, code := w.run(t, "--today=2026-08-27", "check")
 		if code == 0 {
-			t.Fatal("дубль идентификатора должен ломать разбор")
+			t.Fatal("a duplicate identifier must break parsing")
 		}
 		if !strings.Contains(stderr, "T-001") {
-			t.Errorf("ошибка не называет дубль: %q", stderr)
+			t.Errorf("the error does not name the duplicate: %q", stderr)
 		}
 	})
 
-	t.Run("пустой артефакт", func(t *testing.T) {
+	t.Run("empty artifact", func(t *testing.T) {
 		w := newWorkspace(t)
-		w.write(t, w.artifact, "# Обязанности\n\n<!-- secretary:v1 -->\n\n## Работа\n\n## Сделано\n")
+		w.write(t, w.artifact, "# Duties\n\n<!-- secretary:v1 -->\n\n## Work\n\n## Done\n")
 
 		w.mustRun(t, "--today=2026-08-27", "check")
 		w.mustRun(t, "--today=2026-08-27", "fmt")
 		w.mustRun(t, "--today=2026-08-27", "archive")
-		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "Ничего не найдено") {
-			t.Errorf("пустой list молчит иначе:\n%s", out)
+		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "Nothing found") {
+			t.Errorf("an empty list is silent differently:\n%s", out)
 		}
-		if out := w.mustRun(t, "--today=2026-08-27", "brief"); strings.Contains(out, "Просрочено:") {
-			t.Errorf("пустая сводка не пуста:\n%s", out)
+		if out := w.mustRun(t, "--today=2026-08-27", "brief"); strings.Contains(out, "Overdue:") {
+			t.Errorf("an empty briefing is not empty:\n%s", out)
 		}
 	})
 
-	t.Run("только сделанное", func(t *testing.T) {
+	t.Run("only completed", func(t *testing.T) {
 		w := newWorkspace(t)
-		w.mustRun(t, "--today=2026-08-27", "add", "--title=Оплатить страховку", "--tier=2",
-			"--due=2026-08-20", "--section=Финансы")
+		w.mustRun(t, "--today=2026-08-27", "add", "--title=Pay the insurance", "--tier=2",
+			"--due=2026-08-20", "--section=Finance")
 		w.mustRun(t, "--today=2026-08-27", "done", "T-001")
 
-		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "Ничего не найдено") {
-			t.Errorf("сделанное попало в list:\n%s", out)
+		if out := w.mustRun(t, "--today=2026-08-27", "list"); !strings.Contains(out, "Nothing found") {
+			t.Errorf("a completed duty landed in list:\n%s", out)
 		}
 		out := w.mustRun(t, "--today=2026-08-27", "brief")
-		if strings.Contains(out, "Просрочено:") {
-			t.Errorf("сделанное с прошедшим сроком отчитано как просроченное:\n%s", out)
+		if strings.Contains(out, "Overdue:") {
+			t.Errorf("a completed duty with a past deadline was reported overdue:\n%s", out)
 		}
-		if !strings.Contains(w.read(t, w.artifact), "выполнено:2026-08-27") {
-			t.Error("дата выполнения не записана")
+		if !strings.Contains(w.read(t, w.artifact), "done:2026-08-27") {
+			t.Error("completion date not written")
 		}
 	})
 }
@@ -258,35 +258,35 @@ func TestAcceptanceEdgeCases(t *testing.T) {
 // handEdited is the artifact as a human leaves it: ragged spacing, a stale hint
 // line copied by hand, a field key the parser has never heard of, a section
 // outside the configuration, and notes that must survive verbatim.
-const handEdited = `# Обязанности
+const handEdited = `# Duties
 
-Свои заметки сверху, которые Альфреда не касаются.
+My own notes up top, none of Alfred's business.
 
 <!-- secretary:v1 -->
-> Обновлено: 2026-08-20 · К вашим услугам, сэр.
+> Updated: 2026-08-20 · At your service, sir.
 
-## Личное
+## Personal
 
-- [ ] ` + "`T-042`" + ` **Отдать документы нотариусу**
-  тир:1 · от:Марина · срок:2026-09-04 · объём:2ч · контекст:@город · создано:2026-08-27 · переносов:1
-  метки: переезд, документы
-  🔴 подсказка, скопированная руками из вчерашней сводки
-  > нотариус до 18:00
-  > взять паспорт
+- [ ] ` + "`T-042`" + ` **Hand the documents to the notary**
+  tier:1 · from:Helen · due:2026-09-04 · effort:2h · context:@town · created:2026-08-27 · deferrals:1
+  labels: paperwork, documents
+  🔴 a hint copied by hand from yesterday's briefing
+  > notary open until 18:00
+  > bring the passport
 
-- [ ]  ` + "`T-043`" + `  **Купить подарок**
-    тир:2 ·  от:себя  ·  срок:2026-09-10  ·  объём:1ч  · контекст:@город · создано:2026-08-20 · неизвестноеполе:чепуха
-  метки:   отношения
+- [ ]  ` + "`T-043`" + `  **Buy a present**
+    tier:2 ·  from:self  ·  due:2026-09-10  ·  effort:1h  · context:@town · created:2026-08-20 · unknownfield:nonsense
+  labels:   relationships
 
-## Гараж
+## Garage
 
-- [ ] ` + "`T-044`" + ` **Поменять масло**
-  тир:3 · от:себя · создано:2026-08-01
+- [ ] ` + "`T-044`" + ` **Change the oil**
+  tier:3 · from:self · created:2026-08-01
 
-## Сделано
+## Done
 
-- [x] ` + "`T-041`" + ` **Оплатить страховку** · выполнено:2026-08-20
-  тир:2 · от:себя · создано:2026-08-01
+- [x] ` + "`T-041`" + ` **Pay the insurance** · done:2026-08-20
+  tier:2 · from:self · created:2026-08-01
 `
 
 // TestAcceptanceHandEditingIsSafe is the promise the README makes: edit the file
@@ -299,41 +299,41 @@ func TestAcceptanceHandEditingIsSafe(t *testing.T) {
 	w.mustRun(t, "--today=2026-08-27", "fmt")
 	after := w.read(t, w.artifact)
 
-	// Каждая единица данных пережила приведение в порядок.
+	// Every piece of data survived the tidy-up.
 	for _, want := range []string{
-		"Свои заметки сверху",
-		"`T-042`", "**Отдать документы нотариусу**",
-		"тир:1", "от:Марина", "срок:2026-09-04", "объём:2ч", "контекст:@город", "переносов:1",
-		"метки: переезд, документы", "> нотариус до 18:00", "> взять паспорт",
-		"`T-043`", "**Купить подарок**", "метки: отношения",
-		"## Гараж", "`T-044`", "**Поменять масло**",
-		"## Сделано", "`T-041`", "выполнено:2026-08-20",
+		"My own notes up top",
+		"`T-042`", "**Hand the documents to the notary**",
+		"tier:1", "from:Helen", "due:2026-09-04", "effort:2h", "context:@town", "deferrals:1",
+		"labels: paperwork, documents", "> notary open until 18:00", "> bring the passport",
+		"`T-043`", "**Buy a present**", "labels: relationships",
+		"## Garage", "`T-044`", "**Change the oil**",
+		"## Done", "`T-041`", "done:2026-08-20",
 	} {
 		if !strings.Contains(after, want) {
-			t.Errorf("после fmt потеряно %q:\n%s", want, after)
+			t.Errorf("lost after fmt: %q:\n%s", want, after)
 		}
 	}
 
-	// Ровно две вещи fmt снимает намеренно: подсказки он пересчитывает сам,
-	// а ключей, которых не знает, не хранит. И то и другое описано в README.
-	if strings.Contains(after, "скопированная руками") {
-		t.Errorf("устаревшая подсказка пережила fmt:\n%s", after)
+	// Exactly two things fmt drops on purpose: hints, which it recomputes,
+	// and keys it does not know. Both are documented in the README.
+	if strings.Contains(after, "copied by hand") {
+		t.Errorf("a stale hint survived fmt:\n%s", after)
 	}
-	if strings.Contains(after, "неизвестноеполе") {
-		t.Errorf("неизвестный ключ пережил fmt вопреки README:\n%s", after)
+	if strings.Contains(after, "unknownfield") {
+		t.Errorf("an unknown key survived fmt despite the README:\n%s", after)
 	}
 
-	// Второй прогон не двигает ни байта.
+	// A second run moves not a single byte.
 	w.mustRun(t, "--today=2026-08-27", "fmt")
 	if again := w.read(t, w.artifact); again != after {
-		t.Errorf("fmt не идемпотентен:\n--- раз ---\n%s\n--- два ---\n%s", after, again)
+		t.Errorf("fmt is not idempotent:\n--- first ---\n%s\n--- second ---\n%s", after, again)
 	}
 
-	// И задачи по-прежнему адресуются по идентификатору.
+	// And tasks are still addressed by identifier.
 	w.mustRun(t, "--today=2026-08-27", "defer", "T-042", "--due=2026-09-20")
 	w.mustRun(t, "--today=2026-08-27", "done", "T-043")
 	final := w.read(t, w.artifact)
-	if !strings.Contains(final, "срок:2026-09-20") || !strings.Contains(final, "переносов:2") {
-		t.Errorf("перенос не применился к правленной руками задаче:\n%s", final)
+	if !strings.Contains(final, "due:2026-09-20") || !strings.Contains(final, "deferrals:2") {
+		t.Errorf("defer did not apply to the hand-edited task:\n%s", final)
 	}
 }

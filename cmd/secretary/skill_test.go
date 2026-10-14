@@ -17,7 +17,7 @@ func TestSkillDocumentsEverySubcommand(t *testing.T) {
 	text := readSkill(t)
 	for _, c := range commands() {
 		if !strings.Contains(text, "secretary "+c.name()) {
-			t.Errorf("навык не описывает команду %q", c.name())
+			t.Errorf("the skill does not describe command %q", c.name())
 		}
 	}
 }
@@ -28,7 +28,7 @@ func TestSkillDocumentsAddFlags(t *testing.T) {
 	text := readSkill(t)
 	for _, flag := range []string{"--title", "--tier", "--from", "--due", "--effort", "--section", "--labels", "--context", "--note"} {
 		if !strings.Contains(text, flag) {
-			t.Errorf("навык не описывает флаг %q", flag)
+			t.Errorf("the skill does not describe flag %q", flag)
 		}
 	}
 }
@@ -38,7 +38,7 @@ func TestSkillDocumentsAddFlags(t *testing.T) {
 func TestSkillFrontmatter(t *testing.T) {
 	lines := strings.Split(readSkill(t), "\n")
 	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		t.Fatal("навык начинается не с фронтматтера")
+		t.Fatal("the skill does not start with frontmatter")
 	}
 	end := -1
 	for i, line := range lines[1:] {
@@ -48,15 +48,15 @@ func TestSkillFrontmatter(t *testing.T) {
 		}
 	}
 	if end < 0 {
-		t.Fatal("фронтматтер не закрыт")
+		t.Fatal("frontmatter not closed")
 	}
 
 	front := strings.Join(lines[1:end], "\n")
 	if !strings.Contains(front, "name: secretary") {
-		t.Error("во фронтматтере нет name: secretary")
+		t.Error("frontmatter lacks name: secretary")
 	}
 	if !strings.Contains(front, "description:") {
-		t.Error("во фронтматтере нет description")
+		t.Error("frontmatter lacks description")
 	}
 }
 
@@ -64,7 +64,7 @@ func readSkill(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.FromSlash(skillPath))
 	if err != nil {
-		t.Fatalf("навык не читается: %v", err)
+		t.Fatalf("the skill does not read: %v", err)
 	}
 	return string(data)
 }

@@ -12,26 +12,26 @@ import (
 	"github.com/bayanovea/secretary/internal/task"
 )
 
-// greeting closes the generated «Обновлено» line. Alfred's real vocabulary
+// greeting closes the generated «Updated» line. Alfred's real vocabulary
 // arrives with the voice package; this is the one phrase the artifact format
 // itself prescribes.
-const greeting = "К вашим услугам, сэр."
+const greeting = "At your service, sir."
 
 // indent prefixes every line of a task block below its header.
 const indent = "  "
 
-// fieldSep joins `ключ:значение` pairs on the field line.
+// fieldSep joins `key:value` pairs on the field line.
 const fieldSep = " · "
 
 // Render writes doc as an artifact. The output is a fixed point of Parse: what
 // it emits, Parse reads back into an equal Document, which is what lets the CLI
 // rewrite a hand-edited file without losing anything.
 //
-// now dates the «Обновлено» line and the generated hint lines. cfg supplies the
+// now dates the «Updated» line and the generated hint lines. cfg supplies the
 // tier buffers those hints are computed from; a nil cfg means the defaults.
 func Render(w io.Writer, doc *Document, now time.Time, cfg *config.Config) error {
 	if doc == nil {
-		return fmt.Errorf("mdstore: нечего записывать: документ пуст")
+		return fmt.Errorf("mdstore: nothing to write: the document is nil")
 	}
 	if cfg == nil {
 		cfg = config.Default()
@@ -56,7 +56,7 @@ func Render(w io.Writer, doc *Document, now time.Time, cfg *config.Config) error
 		return nil
 	}
 	if _, err := io.WriteString(w, out+"\n"); err != nil {
-		return fmt.Errorf("mdstore: запись: %w", err)
+		return fmt.Errorf("mdstore: write: %w", err)
 	}
 	return nil
 }
@@ -99,8 +99,8 @@ func taskLines(t task.Task, now time.Time, cfg *config.Config) []string {
 			box = "x"
 		}
 		line := indent + "- [" + box + "] " + step.Text
-		// A step's own tier and срок ride at the end of its line, in the same
-		// `ключ:значение` vocabulary the task line uses.
+		// A step's own tier and due date ride at the end of its line, in the same
+		// `key:value` vocabulary the task line uses.
 		if step.Tier != 0 {
 			line += fieldSep + keyTier + ":" + strconv.Itoa(step.Tier)
 		}
@@ -116,7 +116,7 @@ func taskLines(t task.Task, now time.Time, cfg *config.Config) []string {
 }
 
 // fieldList builds the ` · `-separated pairs in a fixed order. An absent value
-// is left out entirely rather than written empty: `срок:` with nothing after it
+// is left out entirely rather than written empty: `due:` with nothing after it
 // would read as a deadline the user forgot to fill in.
 func fieldList(t task.Task) []string {
 	var fields []string
@@ -153,8 +153,8 @@ func fieldList(t task.Task) []string {
 // away, so their wording can change freely.
 //
 // Overdue and start-now share the red glyph — both mean "today, sir" — while
-// «скоро» is a clock and a forgotten duty is asleep. A task with a deadline but
-// no объём has no latest start date, so the hint names the deadline instead.
+// «soon» is a clock and a forgotten duty is asleep. A task with a deadline but
+// no effort has no latest start date, so the hint names the deadline instead.
 func hintLine(t task.Task, now time.Time, cfg *config.Config) string {
 	if t.Done {
 		return ""
@@ -163,14 +163,14 @@ func hintLine(t task.Task, now time.Time, cfg *config.Config) string {
 	start := schedule.LatestStart(t, cfg)
 	byDate := func(glyph string) string {
 		if start != nil {
-			return glyph + " начать не позже " + start.Format(DateLayout)
+			return glyph + " start by " + start.Format(DateLayout)
 		}
-		return glyph + " срок " + t.Due.Format(DateLayout)
+		return glyph + " due " + t.Due.Format(DateLayout)
 	}
 
 	switch schedule.Status(t, now, cfg) {
 	case task.StatusOverdue:
-		return "🔴 просрочено" + fieldSep + "срок был " + t.Due.Format(DateLayout)
+		return "🔴 overdue" + fieldSep + "due was " + t.Due.Format(DateLayout)
 	case task.StatusStartNow:
 		return byDate("🔴")
 	case task.StatusSoon:
@@ -178,7 +178,7 @@ func hintLine(t task.Task, now time.Time, cfg *config.Config) string {
 	}
 
 	if schedule.Has(schedule.Flags(t, now, cfg), schedule.FlagForgotten) {
-		return "💤 забыто" + fieldSep + "создано " + t.Created.Format(DateLayout)
+		return "💤 stale" + fieldSep + "created " + t.Created.Format(DateLayout)
 	}
 	return ""
 }

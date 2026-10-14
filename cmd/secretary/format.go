@@ -14,7 +14,7 @@ import (
 // The list is read with the eyes, not parsed: a glyph says how loud the duty is,
 // the columns line up so that a scan down the page compares like with like, and
 // the identifier — which carries no meaning for a person — is dimmed to the end
-// of the line, where the skill can still find it to resolve «закрой отчёт».
+// of the line, where the skill can still find it to resolve «close the report».
 //
 // The glyphs are the artifact's own vocabulary (see mdstore.hintLine), so a duty
 // looks the same in `list` as it does in docs/duties.md.
@@ -45,13 +45,13 @@ func tierMark(tier int) string {
 }
 
 var (
-	monthsShort   = [...]string{"янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"}
-	weekdaysShort = [...]string{"вс", "пн", "вт", "ср", "чт", "пт", "сб"}
+	monthsShort   = [...]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+	weekdaysShort = [...]string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 )
 
 // humanDue is the deadline as a person would say it. The status column already
-// names the state («просрочено», «без срока»), so this column only ever answers
-// «когда»: an absolute date is unreadable at a glance, «завтра» is not.
+// names the state («overdue», «no deadline»), so this column only ever answers
+// «when»: an absolute date is unreadable at a glance, «tomorrow» is not.
 //
 // A weekday is added inside the coming week because that is the horizon a person
 // plans in; beyond it the day of the week stops helping.
@@ -62,11 +62,11 @@ func humanDue(due *time.Time, now time.Time) string {
 	d := *due
 	switch days := int(day(d).Sub(day(now)).Hours() / 24); {
 	case days == 0:
-		return "сегодня"
+		return "today"
 	case days == 1:
-		return "завтра"
+		return "tomorrow"
 	case days == -1:
-		return "вчера"
+		return "yesterday"
 	case days > 1 && days <= 6:
 		return fmt.Sprintf("%s %d %s", weekdaysShort[int(d.Weekday())], d.Day(), monthsShort[int(d.Month())-1])
 	}
@@ -141,7 +141,7 @@ func colorEnabled(mode string, w io.Writer) (bool, error) {
 		}
 		return info.Mode()&os.ModeCharDevice != 0, nil
 	default:
-		return false, fmt.Errorf("%w: --color %q: ожидается auto, always или never", errUsage, mode)
+		return false, fmt.Errorf("%w: --color %q: expected auto, always or never", errUsage, mode)
 	}
 }
 
@@ -178,7 +178,7 @@ const stepIndent = "        "
 // step is dimmed but still says `[x]`, because the pipe reading this output —
 // the skill — never sees the colour.
 //
-// A step's own tier and срок are laid out so that its date falls in the same
+// A step's own tier and due date are laid out so that its date falls in the same
 // column as the dates of the duties above and below it: a deadline is read down
 // the page, and a step that is due sooner than its parent has to be visible in
 // that scan. titleWidth is the parent grid's title column, which is what puts

@@ -13,7 +13,7 @@ func date(t *testing.T, s string) time.Time {
 	t.Helper()
 	d, err := time.Parse("2006-01-02", s)
 	if err != nil {
-		t.Fatalf("дата %q: %v", s, err)
+		t.Fatalf("date %q: %v", s, err)
 	}
 	return d
 }
@@ -25,12 +25,12 @@ func due(t *testing.T, s string) *time.Time {
 	return &d
 }
 
-// effort parses an artifact-form объём.
+// effort parses an artifact-form effort.
 func effort(t *testing.T, s string) task.Effort {
 	t.Helper()
 	e, err := task.ParseEffort(s)
 	if err != nil {
-		t.Fatalf("объём %q: %v", s, err)
+		t.Fatalf("effort %q: %v", s, err)
 	}
 	return e
 }
@@ -43,36 +43,36 @@ func TestLatestStart(t *testing.T) {
 		effort string
 		want   string // "" means nil
 	}{
-		// тир 1: buffer = max(2д, 50% объёма).
-		{name: "тир 1, минимальный буфер больше доли", tier: 1, dueOn: "2026-09-10", effort: "1д", want: "2026-09-07"},
-		{name: "тир 1, доля больше минимума", tier: 1, dueOn: "2026-09-10", effort: "10д", want: "2026-08-26"},
-		{name: "тир 1, доля ровно равна минимуму", tier: 1, dueOn: "2026-09-10", effort: "4д", want: "2026-09-04"},
-		// тир 2: buffer = max(1д, 25% объёма).
-		{name: "тир 2, минимальный буфер больше доли", tier: 2, dueOn: "2026-09-10", effort: "2д", want: "2026-09-07"},
-		{name: "тир 2, доля больше минимума", tier: 2, dueOn: "2026-09-10", effort: "8д", want: "2026-08-31"},
-		// тир 3: буфера нет вовсе.
-		{name: "тир 3, без буфера", tier: 3, dueOn: "2026-09-10", effort: "3д", want: "2026-09-07"},
-		{name: "тир 3, час работы занимает день календаря", tier: 3, dueOn: "2026-09-10", effort: "1ч", want: "2026-09-09"},
-		// Часовые объёмы округляются вверх вместе с буфером.
-		{name: "тир 1, час работы", tier: 1, dueOn: "2026-08-29", effort: "1ч", want: "2026-08-26"},
-		{name: "тир 2, четыре часа", tier: 2, dueOn: "2026-09-10", effort: "4ч", want: "2026-09-08"},
-		// Недели считаются как 7 дней.
-		{name: "тир 2, неделя", tier: 2, dueOn: "2026-09-10", effort: "1н", want: "2026-09-01"},
+		// tier 1: buffer = max(2d, 50% of effort).
+		{name: "tier 1, minimum buffer exceeds the share", tier: 1, dueOn: "2026-09-10", effort: "1d", want: "2026-09-07"},
+		{name: "tier 1, share exceeds the minimum", tier: 1, dueOn: "2026-09-10", effort: "10d", want: "2026-08-26"},
+		{name: "tier 1, share equals the minimum", tier: 1, dueOn: "2026-09-10", effort: "4d", want: "2026-09-04"},
+		// tier 2: buffer = max(1d, 25% of effort).
+		{name: "tier 2, minimum buffer exceeds the share", tier: 2, dueOn: "2026-09-10", effort: "2d", want: "2026-09-07"},
+		{name: "tier 2, share exceeds the minimum", tier: 2, dueOn: "2026-09-10", effort: "8d", want: "2026-08-31"},
+		// tier 3: no buffer at all.
+		{name: "tier 3, no buffer", tier: 3, dueOn: "2026-09-10", effort: "3d", want: "2026-09-07"},
+		{name: "tier 3, an hour of work takes a calendar day", tier: 3, dueOn: "2026-09-10", effort: "1h", want: "2026-09-09"},
+		// Hour-sized efforts round up together with the buffer.
+		{name: "tier 1, an hour of work", tier: 1, dueOn: "2026-08-29", effort: "1h", want: "2026-08-26"},
+		{name: "tier 2, four hours", tier: 2, dueOn: "2026-09-10", effort: "4h", want: "2026-09-08"},
+		// Weeks count as 7 days.
+		{name: "tier 2, a week", tier: 2, dueOn: "2026-09-10", effort: "1w", want: "2026-09-01"},
 	}
 
 	cfg := config.Default()
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			tk := task.Task{ID: "T-001", Title: "Задача", From: "себя", Tier: tt.tier,
+			tk := task.Task{ID: "T-001", Title: "Task", From: "self", Tier: tt.tier,
 				Due: due(t, tt.dueOn), Effort: effort(t, tt.effort)}
 
 			got := LatestStart(tk, cfg)
 			if got == nil {
-				t.Fatalf("LatestStart() = nil, ожидалось %s", tt.want)
+				t.Fatalf("LatestStart() = nil, want %s", tt.want)
 			}
 			if formatted := got.Format("2006-01-02"); formatted != tt.want {
-				t.Errorf("LatestStart() = %s, ожидалось %s", formatted, tt.want)
+				t.Errorf("LatestStart() = %s, want %s", formatted, tt.want)
 			}
 		})
 	}
@@ -83,17 +83,17 @@ func TestLatestStartAbsent(t *testing.T) {
 		name string
 		tk   task.Task
 	}{
-		{name: "без срока", tk: task.Task{Tier: 1, Effort: effort(t, "5д")}},
-		{name: "без объёма", tk: task.Task{Tier: 1, Due: due(t, "2026-09-10")}},
-		{name: "без срока и объёма", tk: task.Task{Tier: 1}},
-		{name: "нулевой объём", tk: task.Task{Tier: 1, Due: due(t, "2026-09-10"), Effort: effort(t, "0ч")}},
+		{name: "no deadline", tk: task.Task{Tier: 1, Effort: effort(t, "5d")}},
+		{name: "no effort", tk: task.Task{Tier: 1, Due: due(t, "2026-09-10")}},
+		{name: "no deadline and no effort", tk: task.Task{Tier: 1}},
+		{name: "zero effort", tk: task.Task{Tier: 1, Due: due(t, "2026-09-10"), Effort: effort(t, "0h")}},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := LatestStart(tt.tk, config.Default()); got != nil {
-				t.Errorf("LatestStart() = %s, ожидался nil", got.Format("2006-01-02"))
+				t.Errorf("LatestStart() = %s, want nil", got.Format("2006-01-02"))
 			}
 		})
 	}
@@ -101,11 +101,11 @@ func TestLatestStartAbsent(t *testing.T) {
 
 // TestLatestStartNilConfig checks the documented fallback to the defaults.
 func TestLatestStartNilConfig(t *testing.T) {
-	tk := task.Task{Tier: 1, Due: due(t, "2026-09-10"), Effort: effort(t, "1д")}
+	tk := task.Task{Tier: 1, Due: due(t, "2026-09-10"), Effort: effort(t, "1d")}
 
 	got, want := LatestStart(tk, nil), LatestStart(tk, config.Default())
 	if got == nil || want == nil || !got.Equal(*want) {
-		t.Errorf("LatestStart(nil cfg) = %v, ожидалось %v", got, want)
+		t.Errorf("LatestStart(nil cfg) = %v, want %v", got, want)
 	}
 }
 
@@ -117,75 +117,75 @@ func TestStatus(t *testing.T) {
 		want task.Status
 	}{
 		{
-			name: "без срока",
-			tk:   task.Task{Tier: 2, Effort: effort(t, "1д")},
+			name: "no deadline",
+			tk:   task.Task{Tier: 2, Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusNoDue,
 		},
 		{
-			name: "просрочено",
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-26"), Effort: effort(t, "1д")},
+			name: "overdue",
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-26"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusOverdue,
 		},
 		{
-			name: "срок ровно сегодня — ещё не просрочено",
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-27"), Effort: effort(t, "1д")},
+			name: "deadline exactly today — not yet overdue",
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-27"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusStartNow,
 		},
 		{
-			name: "день старта ровно сегодня",
-			// объём 1д, тир 1 ⇒ buffer 2д ⇒ старт 2026-08-27.
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-30"), Effort: effort(t, "1д")},
+			name: "start day exactly today",
+			// effort 1d, tier 1 ⇒ buffer 2d ⇒ start 2026-08-27.
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-30"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusStartNow,
 		},
 		{
-			name: "день старта завтра — скоро",
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-31"), Effort: effort(t, "1д")},
+			name: "start day tomorrow — soon",
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-08-31"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusSoon,
 		},
 		{
-			name: "день старта на границе окна",
-			// старт 2026-08-30 = сегодня + 3 = soon_window_days.
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-02"), Effort: effort(t, "1д")},
+			name: "start day on the window edge",
+			// start 2026-08-30 = today + 3 = soon_window_days.
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-02"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusSoon,
 		},
 		{
-			name: "день старта на день позже окна — спокойно",
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-03"), Effort: effort(t, "1д")},
+			name: "start day one past the window — on track",
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-03"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusCalm,
 		},
 		{
-			name: "спокойно, далёкий срок",
-			tk:   task.Task{Tier: 3, Due: due(t, "2026-12-31"), Effort: effort(t, "1д")},
+			name: "on track, distant deadline",
+			tk:   task.Task{Tier: 3, Due: due(t, "2026-12-31"), Effort: effort(t, "1d")},
 			now:  "2026-08-27",
 			want: task.StatusCalm,
 		},
 		{
-			name: "без объёма: срок заменяет день старта",
+			name: "no effort: the deadline stands in for the start day",
 			tk:   task.Task{Tier: 2, Due: due(t, "2026-08-29")},
 			now:  "2026-08-27",
 			want: task.StatusSoon,
 		},
 		{
-			name: "без объёма: срок сегодня",
+			name: "no effort: deadline today",
 			tk:   task.Task{Tier: 2, Due: due(t, "2026-08-27")},
 			now:  "2026-08-27",
 			want: task.StatusStartNow,
 		},
 		{
-			name: "выполненная задача спокойна, даже с прошедшим сроком",
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-01-01"), Effort: effort(t, "1д"), Done: true},
+			name: "a completed task is on track even past its deadline",
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-01-01"), Effort: effort(t, "1d"), Done: true},
 			now:  "2026-08-27",
 			want: task.StatusCalm,
 		},
 		{
-			name: "время суток не влияет на сравнение дней",
+			name: "time of day does not affect day comparison",
 			tk:   task.Task{Tier: 3, Due: due(t, "2026-08-27")},
 			now:  "2026-08-27",
 			want: task.StatusStartNow,
@@ -198,7 +198,7 @@ func TestStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			now := date(t, tt.now).Add(23 * time.Hour)
 			if got := Status(tt.tk, now, cfg); got != tt.want {
-				t.Errorf("Status() = %v (%s), ожидалось %v (%s)", got, got, tt.want, tt.want)
+				t.Errorf("Status() = %v (%s), want %v (%s)", got, got, tt.want, tt.want)
 			}
 		})
 	}
@@ -215,67 +215,67 @@ func TestFlags(t *testing.T) {
 		want []Flag
 	}{
 		{
-			name: "полные данные — ни одного флага",
-			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-10"), Effort: effort(t, "1д"), Created: fresh},
+			name: "complete data — no flags",
+			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-10"), Effort: effort(t, "1d"), Created: fresh},
 			want: nil,
 		},
 		{
-			name: "тир 1 без срока",
-			tk:   task.Task{Tier: 1, Effort: effort(t, "1д"), Created: fresh},
+			name: "tier 1 without a deadline",
+			tk:   task.Task{Tier: 1, Effort: effort(t, "1d"), Created: fresh},
 			want: []Flag{FlagIncomplete},
 		},
 		{
-			name: "тир 1 без объёма",
+			name: "tier 1 without an effort",
 			tk:   task.Task{Tier: 1, Due: due(t, "2026-09-10"), Created: fresh},
 			want: []Flag{FlagIncomplete},
 		},
 		{
-			name: "тир 2 без объёма — не наш случай",
+			name: "tier 2 without an effort — not our case",
 			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Created: fresh},
 			want: nil,
 		},
 		{
-			name: "два переноса",
-			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Effort: effort(t, "1д"), Deferrals: 2, Created: fresh},
+			name: "two deferrals",
+			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Effort: effort(t, "1d"), Deferrals: 2, Created: fresh},
 			want: []Flag{FlagPostponed},
 		},
 		{
-			name: "один перенос — молчим",
-			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Effort: effort(t, "1д"), Deferrals: 1, Created: fresh},
+			name: "one deferral — stay quiet",
+			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Effort: effort(t, "1d"), Deferrals: 1, Created: fresh},
 			want: nil,
 		},
 		{
-			name: "тир 2 без срока, залежалась",
-			tk:   task.Task{Tier: 2, Effort: effort(t, "1д"), Created: stale},
+			name: "tier 2 without a deadline, stale",
+			tk:   task.Task{Tier: 2, Effort: effort(t, "1d"), Created: stale},
 			want: []Flag{FlagForgotten},
 		},
 		{
-			name: "тир 3 без срока, залежалась — фоновому можно",
-			tk:   task.Task{Tier: 3, Effort: effort(t, "1д"), Created: stale},
+			name: "tier 3 without a deadline, stale — background may",
+			tk:   task.Task{Tier: 3, Effort: effort(t, "1d"), Created: stale},
 			want: nil,
 		},
 		{
-			name: "залежалась, но срок есть — не забыта",
-			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Effort: effort(t, "1д"), Created: stale},
+			name: "stale but has a deadline — not forgotten",
+			tk:   task.Task{Tier: 2, Due: due(t, "2026-09-10"), Effort: effort(t, "1d"), Created: stale},
 			want: nil,
 		},
 		{
-			name: "ровно stale_days от роду — ещё не забыта",
-			tk:   task.Task{Tier: 2, Effort: effort(t, "1д"), Created: date(t, "2026-08-13")},
+			name: "exactly stale_days old — not yet forgotten",
+			tk:   task.Task{Tier: 2, Effort: effort(t, "1d"), Created: date(t, "2026-08-13")},
 			want: nil,
 		},
 		{
-			name: "без даты создания забытой не считаем",
-			tk:   task.Task{Tier: 2, Effort: effort(t, "1д")},
+			name: "no creation date — never counted as forgotten",
+			tk:   task.Task{Tier: 2, Effort: effort(t, "1d")},
 			want: nil,
 		},
 		{
-			name: "все три сразу, в порядке констант",
+			name: "all three at once, in constant order",
 			tk:   task.Task{Tier: 1, Deferrals: 3, Created: stale},
 			want: []Flag{FlagIncomplete, FlagPostponed, FlagForgotten},
 		},
 		{
-			name: "выполненная задача молчит",
+			name: "a completed task stays quiet",
 			tk:   task.Task{Tier: 1, Deferrals: 3, Created: stale, Done: true},
 			want: nil,
 		},
@@ -287,11 +287,11 @@ func TestFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Flags(tt.tk, date(t, now), cfg)
 			if len(got) != len(tt.want) {
-				t.Fatalf("Flags() = %v, ожидалось %v", got, tt.want)
+				t.Fatalf("Flags() = %v, want %v", got, tt.want)
 			}
 			for i := range got {
 				if got[i] != tt.want[i] {
-					t.Fatalf("Flags() = %v, ожидалось %v", got, tt.want)
+					t.Fatalf("Flags() = %v, want %v", got, tt.want)
 				}
 			}
 		})
@@ -301,13 +301,13 @@ func TestFlags(t *testing.T) {
 func TestHas(t *testing.T) {
 	flags := []Flag{FlagIncomplete, FlagForgotten}
 	if !Has(flags, FlagForgotten) {
-		t.Error("Has(забыто) = false, ожидалось true")
+		t.Error("Has(stale) = false, want true")
 	}
 	if Has(flags, FlagPostponed) {
-		t.Error("Has(откладывается) = true, ожидалось false")
+		t.Error("Has(deferred) = true, want false")
 	}
 	if Has(nil, FlagIncomplete) {
-		t.Error("Has(nil) = true, ожидалось false")
+		t.Error("Has(nil) = true, want false")
 	}
 }
 
@@ -316,15 +316,15 @@ func TestFlagString(t *testing.T) {
 		flag Flag
 		want string
 	}{
-		{FlagIncomplete, "неполные данные"},
-		{FlagPostponed, "откладывается"},
-		{FlagForgotten, "забыто"},
-		{Flag(42), "неизвестно"},
+		{FlagIncomplete, "incomplete data"},
+		{FlagPostponed, "deferred"},
+		{FlagForgotten, "stale"},
+		{Flag(42), "unknown"},
 	}
 
 	for _, tt := range tests {
 		if got := tt.flag.String(); got != tt.want {
-			t.Errorf("Flag(%d).String() = %q, ожидалось %q", tt.flag, got, tt.want)
+			t.Errorf("Flag(%d).String() = %q, want %q", tt.flag, got, tt.want)
 		}
 	}
 }
@@ -342,7 +342,7 @@ func TestSeverityOrder(t *testing.T) {
 
 	for i := 1; i < len(order); i++ {
 		if Severity(order[i]) <= Severity(order[i-1]) {
-			t.Errorf("Severity(%s) = %d не больше Severity(%s) = %d",
+			t.Errorf("Severity(%s) = %d is not greater than Severity(%s) = %d",
 				order[i], Severity(order[i]), order[i-1], Severity(order[i-1]))
 		}
 	}

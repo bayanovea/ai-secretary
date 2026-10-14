@@ -1,27 +1,27 @@
-# Обязанности
+# Duties
 
 <!-- secretary:v1 -->
-> Обновлено: 2026-08-27 · К вашим услугам, сэр.
+> Updated: 2026-08-27 · At your service, sir.
 
-## Работа
+## Work
 
-- [ ] `T-001` **Подготовить отчёт за Q3**
-  тир:1 · от:Анна Петрова · срок:2026-09-05 · объём:5д · контекст:@компьютер · переносов:1 · создано:2026-08-20
-  метки: отчётность, финансы
-  > нужны данные от финотдела
-  > они обычно тянут до последнего
-  🔴 начать не позже 2026-08-27 — то есть сегодня, сэр.
+- [ ] `T-001` **Prepare the Q3 report**
+  tier:1 · from:Dana Whitfield · due:2026-09-05 · effort:5d · context:@computer · deferrals:1 · created:2026-08-20
+  labels: reporting, finance
+  > needs the numbers from accounting
+  > they are always late
+  🔴 start by 2026-08-27 — that is today, sir.
 
-- [ ] `T-004` **Согласовать отпуск**
-  тир:2 · от:себя · создано:2026-08-25
+- [ ] `T-004` **Get the vacation approved**
+  tier:2 · from:self · created:2026-08-25
 
-## Личное
+## Personal
 
-- [ ] `T-002` **Забрать документы у нотариуса**
-  тир:1 · от:Марина · срок:2026-08-29 · объём:1ч · контекст:@город · создано:2026-08-26 · приоритет:высокий
-  метки: переезд, документы
-  ⏰ начать не позже 2026-08-28
+- [ ] `T-002` **Collect the documents from the notary**
+  tier:1 · from:Helen · due:2026-08-29 · effort:1h · context:@town · created:2026-08-26 · priority:high
+  labels: paperwork, documents
+  ⏰ start by 2026-08-28
 
-## Сделано
+## Done
 
-- [x] `T-000` **Оплатить страховку** · выполнено:2026-08-20
+- [x] `T-000` **Pay the insurance** · done:2026-08-20

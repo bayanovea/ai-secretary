@@ -22,7 +22,7 @@ func parseString(t *testing.T, s string) *Document {
 	t.Helper()
 	doc, err := Parse(strings.NewReader(s))
 	if err != nil {
-		t.Fatalf("Parse() error = %v\n--- вход ---\n%s", err, s)
+		t.Fatalf("Parse() error = %v\n--- input ---\n%s", err, s)
 	}
 	return doc
 }
@@ -54,7 +54,7 @@ func TestRoundTrip(t *testing.T) {
 	second := parseString(t, render(t, first, date(t, "2026-08-27")))
 
 	if !reflect.DeepEqual(second, first) {
-		t.Errorf("parse(render(parse(x))) != parse(x)\n--- получено ---\n%#v\n--- ожидалось ---\n%#v", second, first)
+		t.Errorf("parse(render(parse(x))) != parse(x)\n--- got ---\n%#v\n--- want ---\n%#v", second, first)
 	}
 }
 
@@ -62,27 +62,27 @@ func TestRoundTrip(t *testing.T) {
 // would generate: ragged indentation, extra blank lines, a deeper heading and
 // fields spaced by hand.
 func TestRoundTripUnusualSpacing(t *testing.T) {
-	const messy = "# Обязанности\n" +
+	const messy = "# Duties\n" +
 		"\n" +
 		"\n" +
-		"Читайте сверху вниз.\n" +
+		"Read top to bottom.\n" +
 		"\n" +
-		"###   Работа\n" +
-		"-  [ ]   `T-001`   **Подготовить отчёт**\n" +
-		"      тир:1   ·   от:Анна Петрова·срок:2026-09-05 ·объём:5д·   контекст:@компьютер\n" +
-		"   метки:   отчётность ,  финансы ,\n" +
-		"\t> нужны данные от финотдела\n" +
-		"🔴 начать не позже 2026-08-27\n" +
+		"###   Work\n" +
+		"-  [ ]   `T-001`   **Prepare the report**\n" +
+		"      tier:1   ·   from:Dana Whitfield·due:2026-09-05 ·effort:5d·   context:@computer\n" +
+		"   labels:   reporting ,  finance ,\n" +
+		"\t> needs the numbers from accounting\n" +
+		"🔴 start by 2026-08-27\n" +
 		"\n" +
 		"\n" +
-		"- [x] `T-000` **Оплатить страховку**  ·  выполнено:2026-08-20\n" +
+		"- [x] `T-000` **Pay the insurance**  ·  done:2026-08-20\n" +
 		"\n"
 
 	first := parseString(t, messy)
 	second := parseString(t, render(t, first, date(t, "2026-08-27")))
 
 	if !reflect.DeepEqual(second, first) {
-		t.Errorf("нестандартное форматирование не пережило round-trip\n--- получено ---\n%#v\n--- ожидалось ---\n%#v", second, first)
+		t.Errorf("messy formatting did not survive the round-trip\n--- got ---\n%#v\n--- want ---\n%#v", second, first)
 	}
 }
 
@@ -99,33 +99,33 @@ func TestRenderIdempotent(t *testing.T) {
 	twice := render(t, parseString(t, once), now)
 
 	if once != twice {
-		t.Errorf("повторный рендер изменил файл\n--- первый ---\n%s\n--- второй ---\n%s", once, twice)
+		t.Errorf("rendering twice changed the file\n--- first ---\n%s\n--- second ---\n%s", once, twice)
 	}
 }
 
 func TestRenderOmitsAbsentFields(t *testing.T) {
-	doc := parseString(t, "# Обязанности\n\n## Работа\n\n- [ ] `T-004` **Согласовать отпуск**\n  тир:2 · от:себя\n")
+	doc := parseString(t, "# Duties\n\n## Work\n\n- [ ] `T-004` **Get the vacation approved**\n  tier:2 · from:self\n")
 	got := render(t, doc, date(t, "2026-08-27"))
 
 	for _, key := range []string{keyDue, keyEffort, keyContext, keyDeferrals, keyCreated, labelsPrefix} {
 		if strings.Contains(got, key+":") {
-			t.Errorf("отсутствующее поле %q попало в вывод:\n%s", key, got)
+			t.Errorf("absent field %q appeared in the output:\n%s", key, got)
 		}
 	}
-	if want := "  " + keyTier + ":2 · " + keyFrom + ":себя\n"; !strings.Contains(got, want) {
-		t.Errorf("строка полей = %q, ожидалась подстрока %q", got, want)
+	if want := "  " + keyTier + ":2 · " + keyFrom + ":self\n"; !strings.Contains(got, want) {
+		t.Errorf("field line = %q, want substring %q", got, want)
 	}
 }
 
 func TestRenderMarkerAndUpdatedLine(t *testing.T) {
-	doc := parseString(t, "# Обязанности\n\n## Работа\n")
+	doc := parseString(t, "# Duties\n\n## Work\n")
 	got := render(t, doc, date(t, "2026-08-27"))
 
 	if !strings.Contains(got, Marker) {
-		t.Errorf("нет маркера %q в выводе:\n%s", Marker, got)
+		t.Errorf("marker %q missing from the output:\n%s", Marker, got)
 	}
 	if want := updatedPrefix + " 2026-08-27 · " + greeting; !strings.Contains(got, want) {
-		t.Errorf("нет строки %q в выводе:\n%s", want, got)
+		t.Errorf("line %q missing from the output:\n%s", want, got)
 	}
 }
 
@@ -140,51 +140,51 @@ func TestRenderHintLines(t *testing.T) {
 		want   string
 	}{
 		{
-			name:   "пора начинать",
-			fields: "тир:1 · от:себя · срок:2026-09-05 · объём:5д",
+			name:   "start now",
+			fields: "tier:1 · from:self · due:2026-09-05 · effort:5d",
 			now:    "2026-08-29",
-			want:   "🔴 начать не позже 2026-08-28",
+			want:   "🔴 start by 2026-08-28",
 		},
 		{
-			name:   "скоро",
-			fields: "тир:2 · от:себя · срок:2026-09-05 · объём:1д",
+			name:   "soon",
+			fields: "tier:2 · from:self · due:2026-09-05 · effort:1d",
 			now:    "2026-09-01",
-			want:   "⏰ начать не позже 2026-09-03",
+			want:   "⏰ start by 2026-09-03",
 		},
 		{
-			name:   "спокойно",
-			fields: "тир:3 · от:себя · срок:2026-12-31 · объём:1д",
+			name:   "on track",
+			fields: "tier:3 · from:self · due:2026-12-31 · effort:1d",
 			now:    "2026-08-27",
 			want:   "",
 		},
 		{
-			name:   "без срока",
-			fields: "тир:1 · от:себя · объём:5д",
+			name:   "no deadline",
+			fields: "tier:1 · from:self · effort:5d",
 			now:    "2026-08-27",
 			want:   "",
 		},
 		{
-			// Без объёма дня старта нет, поэтому подсказка называет срок.
-			name:   "без объёма",
-			fields: "тир:1 · от:себя · срок:2026-08-28",
+			// Without an effort there is no start date, so the hint names the deadline.
+			name:   "no effort",
+			fields: "tier:1 · from:self · due:2026-08-28",
 			now:    "2026-08-27",
-			want:   "⏰ срок 2026-08-28",
+			want:   "⏰ due 2026-08-28",
 		},
 		{
-			name:   "просрочено",
-			fields: "тир:1 · от:себя · срок:2026-08-20 · объём:1д",
+			name:   "overdue",
+			fields: "tier:1 · from:self · due:2026-08-20 · effort:1d",
 			now:    "2026-08-27",
-			want:   "🔴 просрочено · срок был 2026-08-20",
+			want:   "🔴 overdue · due was 2026-08-20",
 		},
 		{
-			name:   "забыто",
-			fields: "тир:2 · от:себя · создано:2026-08-01",
+			name:   "stale",
+			fields: "tier:2 · from:self · created:2026-08-01",
 			now:    "2026-08-27",
-			want:   "💤 забыто · создано 2026-08-01",
+			want:   "💤 stale · created 2026-08-01",
 		},
 		{
-			name:   "залежалась, но фоновая — молчим",
-			fields: "тир:3 · от:себя · создано:2026-08-01",
+			name:   "stale but background — stay quiet",
+			fields: "tier:3 · from:self · created:2026-08-01",
 			now:    "2026-08-27",
 			want:   "",
 		},
@@ -193,12 +193,12 @@ func TestRenderHintLines(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			doc := parseString(t, "# Обязанности\n\n## Работа\n\n- [ ] `T-001` **Задача**\n  "+tt.fields+"\n")
+			doc := parseString(t, "# Duties\n\n## Work\n\n- [ ] `T-001` **Task**\n  "+tt.fields+"\n")
 			got := render(t, doc, date(t, tt.now))
 
 			hint := hintOf(got)
 			if hint != tt.want {
-				t.Errorf("подсказка = %q, ожидалась %q\n--- вывод ---\n%s", hint, tt.want, got)
+				t.Errorf("hint = %q, want %q\n--- output ---\n%s", hint, tt.want, got)
 			}
 		})
 	}
@@ -207,7 +207,7 @@ func TestRenderHintLines(t *testing.T) {
 func TestRenderNilDocument(t *testing.T) {
 	var buf strings.Builder
 	if err := Render(&buf, nil, time.Time{}, nil); err == nil {
-		t.Error("Render(nil) error = nil, ожидалась ошибка")
+		t.Error("Render(nil) error = nil, want an error")
 	}
 }
 

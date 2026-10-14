@@ -19,7 +19,7 @@ import (
 // updateGolden rewrites the expected briefing instead of comparing against it.
 // Run `go test ./internal/brief -update` after an intentional wording change and
 // read the diff: the golden file is how Alfred's briefing is reviewed.
-var updateGolden = flag.Bool("update", false, "перезаписать эталонные файлы в testdata/golden")
+var updateGolden = flag.Bool("update", false, "rewrite the golden files in testdata/golden")
 
 // assertGolden compares got against the named golden file, or rewrites it when
 // -update is given.
@@ -29,24 +29,24 @@ func assertGolden(t *testing.T, name, got string) {
 
 	if *updateGolden {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("создать %s: %v", filepath.Dir(path), err)
+			t.Fatalf("create %s: %v", filepath.Dir(path), err)
 		}
 		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
-			t.Fatalf("записать %s: %v", path, err)
+			t.Fatalf("write %s: %v", path, err)
 		}
 		return
 	}
 
 	want, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("прочитать %s: %v (перегенерируйте: go test ./internal/brief -update)", path, err)
+		t.Fatalf("read %s: %v (regenerate: go test ./internal/brief -update)", path, err)
 	}
 	if got != string(want) {
-		t.Errorf("вывод не совпадает с %s\n--- получено ---\n%s\n--- ожидалось ---\n%s", path, got, want)
+		t.Errorf("output differs from %s\n--- got ---\n%s\n--- want ---\n%s", path, got, want)
 	}
 }
 
-// today is the fixed «сегодня» every test in this file runs at.
+// today is the fixed «today» every test in this file runs at.
 var today = date("2026-08-27")
 
 func date(s string) time.Time {
@@ -77,47 +77,47 @@ func fixture() *mdstore.Document {
 	return &mdstore.Document{
 		Preamble: []string{mdstore.DefaultPreamble},
 		Sections: []mdstore.Section{
-			{Name: "Работа", Tasks: []task.Task{
+			{Name: "Work", Tasks: []task.Task{
 				{
-					ID: "T-001", Title: "Подготовить отчёт за Q3", Section: "Работа",
-					Tier: 1, From: "Анна Петрова", Due: due("2026-09-05"), Effort: effort("5д"),
-					Context: "@компьютер", Labels: []string{"отчётность", "финансы"},
-					Notes:     []string{"нужны данные от финотдела"},
+					ID: "T-001", Title: "Prepare the Q3 report", Section: "Work",
+					Tier: 1, From: "Dana Whitfield", Due: due("2026-09-05"), Effort: effort("5d"),
+					Context: "@computer", Labels: []string{"reporting", "finance"},
+					Notes:     []string{"needs the numbers from accounting"},
 					Deferrals: 1, Created: date("2026-08-20"),
 				},
 				{
-					ID: "T-004", Title: "Отправить акты", Section: "Работа",
-					Tier: 2, From: "Анна Петрова", Due: due("2026-08-24"), Effort: effort("1д"),
-					Context: "@работа", Created: date("2026-08-10"),
+					ID: "T-004", Title: "Send the invoices", Section: "Work",
+					Tier: 2, From: "Dana Whitfield", Due: due("2026-08-24"), Effort: effort("1d"),
+					Context: "@work", Created: date("2026-08-10"),
 				},
 			}},
-			{Name: "Личное", Tasks: []task.Task{
+			{Name: "Personal", Tasks: []task.Task{
 				{
-					ID: "T-002", Title: "Забрать документы у нотариуса", Section: "Личное",
-					Tier: 1, From: "Марина", Due: due("2026-08-29"), Effort: effort("1ч"),
-					Context: "@город", Labels: []string{"переезд", "документы"},
+					ID: "T-002", Title: "Collect the documents from the notary", Section: "Personal",
+					Tier: 1, From: "Helen", Due: due("2026-08-29"), Effort: effort("1h"),
+					Context: "@town", Labels: []string{"paperwork", "documents"},
 					Created: date("2026-08-26"),
 				},
 				{
-					ID: "T-003", Title: "Купить подарок Марине", Section: "Личное",
-					Tier: 2, From: "себя", Due: due("2026-09-01"), Effort: effort("2ч"),
-					Context: "@город", Labels: []string{"отношения"},
+					ID: "T-003", Title: "Buy Helen a present", Section: "Personal",
+					Tier: 2, From: "self", Due: due("2026-09-01"), Effort: effort("2h"),
+					Context: "@town", Labels: []string{"relationships"},
 					Deferrals: 2, Created: date("2026-08-15"),
 				},
 				{
-					ID: "T-006", Title: "Забрать посылку", Section: "Личное",
-					Tier: 3, From: "Марина", Context: "@город", Created: date("2026-08-20"),
+					ID: "T-006", Title: "Pick up the parcel", Section: "Personal",
+					Tier: 3, From: "Helen", Context: "@town", Created: date("2026-08-20"),
 				},
 			}},
-			{Name: "Дом", Tasks: []task.Task{
+			{Name: "Home", Tasks: []task.Task{
 				{
-					ID: "T-005", Title: "Разобраться со страховкой", Section: "Дом",
-					Tier: 1, From: "себя", Created: date("2026-08-01"),
+					ID: "T-005", Title: "Sort out the insurance", Section: "Home",
+					Tier: 1, From: "self", Created: date("2026-08-01"),
 				},
 			}},
 			{Name: mdstore.DoneSection, Tasks: []task.Task{
 				{
-					ID: "T-000", Title: "Оплатить интернет", Section: mdstore.DoneSection,
+					ID: "T-000", Title: "Pay the internet bill", Section: mdstore.DoneSection,
 					Done: true, CompletedAt: due("2026-08-20"),
 				},
 			}},
@@ -153,13 +153,13 @@ func TestBuildBuckets(t *testing.T) {
 		got  []string
 		want []string
 	}{
-		{"просрочено", ids(b.Overdue), []string{"T-004"}},
-		{"пора начинать", ids(b.StartNow), []string{"T-002"}},
-		{"скоро", ids(b.Soon), []string{"T-001", "T-003"}},
+		{"overdue", ids(b.Overdue), []string{"T-004"}},
+		{"start now", ids(b.StartNow), []string{"T-002"}},
+		{"soon", ids(b.Soon), []string{"T-001", "T-003"}},
 	}
 	for _, c := range cases {
 		if !equalStrings(c.got, c.want) {
-			t.Errorf("%s = %v, ожидалось %v", c.name, c.got, c.want)
+			t.Errorf("%s = %v, want %v", c.name, c.got, c.want)
 		}
 	}
 }
@@ -171,13 +171,13 @@ func TestBuildBucketsAreDisjoint(t *testing.T) {
 
 	seen := map[string]string{}
 	for bucket, tasks := range map[string][]task.Task{
-		"просрочено":    b.Overdue,
-		"пора начинать": b.StartNow,
-		"скоро":         b.Soon,
+		"overdue":   b.Overdue,
+		"start now": b.StartNow,
+		"soon":      b.Soon,
 	} {
 		for _, tk := range tasks {
 			if other, dup := seen[tk.ID]; dup {
-				t.Errorf("%s попал и в %q, и в %q", tk.ID, other, bucket)
+				t.Errorf("%s landed in both %q and %q", tk.ID, other, bucket)
 			}
 			seen[tk.ID] = bucket
 		}
@@ -194,32 +194,32 @@ func TestBuildBucketPerStatus(t *testing.T) {
 		task   task.Task
 		bucket string
 	}{
-		{"просрочено", task.Task{ID: "T-101", Title: "Просроченная", Section: "Работа", Tier: 2, From: "себя", Due: due("2026-08-20"), Effort: effort("1д")}, "просрочено"},
-		{"пора начинать", task.Task{ID: "T-102", Title: "Пора", Section: "Работа", Tier: 2, From: "себя", Due: due("2026-08-28"), Effort: effort("1д")}, "пора начинать"},
-		{"скоро", task.Task{ID: "T-103", Title: "Скоро", Section: "Работа", Tier: 3, From: "себя", Due: due("2026-08-30"), Effort: effort("1д")}, "скоро"},
-		{"спокойно", task.Task{ID: "T-104", Title: "Спокойно", Section: "Работа", Tier: 3, From: "себя", Due: due("2026-12-31"), Effort: effort("1д")}, ""},
-		{"без срока", task.Task{ID: "T-105", Title: "Без срока", Section: "Работа", Tier: 2, From: "себя"}, ""},
-		{"выполнено", task.Task{ID: "T-106", Title: "Готово", Section: mdstore.DoneSection, Tier: 1, From: "себя", Due: due("2026-01-01"), Done: true}, ""},
+		{"overdue", task.Task{ID: "T-101", Title: "Overdue one", Section: "Work", Tier: 2, From: "self", Due: due("2026-08-20"), Effort: effort("1d")}, "overdue"},
+		{"start now", task.Task{ID: "T-102", Title: "Time", Section: "Work", Tier: 2, From: "self", Due: due("2026-08-28"), Effort: effort("1d")}, "start now"},
+		{"soon", task.Task{ID: "T-103", Title: "Soon", Section: "Work", Tier: 3, From: "self", Due: due("2026-08-30"), Effort: effort("1d")}, "soon"},
+		{"on track", task.Task{ID: "T-104", Title: "Calm", Section: "Work", Tier: 3, From: "self", Due: due("2026-12-31"), Effort: effort("1d")}, ""},
+		{"no deadline", task.Task{ID: "T-105", Title: "No deadline", Section: "Work", Tier: 2, From: "self"}, ""},
+		{"done", task.Task{ID: "T-106", Title: "Finished", Section: mdstore.DoneSection, Tier: 1, From: "self", Due: due("2026-01-01"), Done: true}, ""},
 	}
 
 	for _, c := range cases {
-		doc := &mdstore.Document{Sections: []mdstore.Section{{Name: "Работа", Tasks: []task.Task{c.task}}}}
+		doc := &mdstore.Document{Sections: []mdstore.Section{{Name: "Work", Tasks: []task.Task{c.task}}}}
 		b := Build(doc, today, cfg)
 
 		got := ""
 		switch {
 		case len(b.Overdue) > 0:
-			got = "просрочено"
+			got = "overdue"
 		case len(b.StartNow) > 0:
-			got = "пора начинать"
+			got = "start now"
 		case len(b.Soon) > 0:
-			got = "скоро"
+			got = "soon"
 		}
 		if got != c.bucket {
-			t.Errorf("%s: попало в %q, ожидалось %q", c.name, got, c.bucket)
+			t.Errorf("%s: landed in %q, want %q", c.name, got, c.bucket)
 		}
 		if total := len(b.Overdue) + len(b.StartNow) + len(b.Soon); total > 1 {
-			t.Errorf("%s: задача попала в %d корзин", c.name, total)
+			t.Errorf("%s: task landed in %d buckets", c.name, total)
 		}
 	}
 }
@@ -230,11 +230,11 @@ func TestBuildCounts(t *testing.T) {
 	want := map[int]int{1: 3, 2: 2, 3: 1}
 	for tier, n := range want {
 		if b.Counts[tier] != n {
-			t.Errorf("тир %d: %d, ожидалось %d", tier, b.Counts[tier], n)
+			t.Errorf("tier %d: %d, want %d", tier, b.Counts[tier], n)
 		}
 	}
 	if b.Total() != 6 {
-		t.Errorf("всего открытых: %d, ожидалось 6 (выполненные не считаются)", b.Total())
+		t.Errorf("total open: %d, want 6 (completed do not count)", b.Total())
 	}
 }
 
@@ -255,11 +255,11 @@ func TestBuildComplaints(t *testing.T) {
 		{"T-003", schedule.FlagPostponed},
 	}
 	if len(got) != len(want) {
-		t.Fatalf("замечаний %d (%v), ожидалось %d (%v)", len(got), got, len(want), want)
+		t.Fatalf("complaints %d (%v), want %d (%v)", len(got), got, len(want), want)
 	}
 	for i := range want {
 		if got[i] != want[i] {
-			t.Errorf("замечание %d = %v, ожидалось %v", i, got[i], want[i])
+			t.Errorf("complaint %d = %v, want %v", i, got[i], want[i])
 		}
 	}
 }
@@ -268,13 +268,13 @@ func TestBuildGroups(t *testing.T) {
 	b := Build(fixture(), today, config.Default())
 
 	if len(b.Groups) != 2 {
-		t.Fatalf("групп %d, ожидалось 2: %v", len(b.Groups), b.Groups)
+		t.Fatalf("groups %d, want 2: %v", len(b.Groups), b.Groups)
 	}
-	if b.Groups[0].Key != "@город" || !equalStrings(ids(b.Groups[0].Tasks), []string{"T-002", "T-003", "T-006"}) {
-		t.Errorf("первая группа = %s %v, ожидалось @город [T-002 T-003 T-006]", b.Groups[0].Key, ids(b.Groups[0].Tasks))
+	if b.Groups[0].Key != "@town" || !equalStrings(ids(b.Groups[0].Tasks), []string{"T-002", "T-003", "T-006"}) {
+		t.Errorf("first group = %s %v, want @town [T-002 T-003 T-006]", b.Groups[0].Key, ids(b.Groups[0].Tasks))
 	}
-	if b.Groups[1].Key != "Анна Петрова" || !equalStrings(ids(b.Groups[1].Tasks), []string{"T-001", "T-004"}) {
-		t.Errorf("вторая группа = %s %v, ожидалось Анна Петрова [T-001 T-004]", b.Groups[1].Key, ids(b.Groups[1].Tasks))
+	if b.Groups[1].Key != "Dana Whitfield" || !equalStrings(ids(b.Groups[1].Tasks), []string{"T-001", "T-004"}) {
+		t.Errorf("second group = %s %v, want Dana Whitfield [T-001 T-004]", b.Groups[1].Key, ids(b.Groups[1].Tasks))
 	}
 }
 
@@ -284,18 +284,18 @@ func TestBuildIgnoresDone(t *testing.T) {
 	doc := &mdstore.Document{Sections: []mdstore.Section{{
 		Name: mdstore.DoneSection,
 		Tasks: []task.Task{{
-			ID: "T-000", Title: "Оплатить интернет", Section: mdstore.DoneSection,
-			Tier: 1, From: "себя", Due: due("2026-01-01"), Effort: effort("1д"),
+			ID: "T-000", Title: "Pay the internet bill", Section: mdstore.DoneSection,
+			Tier: 1, From: "self", Due: due("2026-01-01"), Effort: effort("1d"),
 			Done: true, CompletedAt: due("2026-01-01"),
 		}},
 	}}}
 
 	b := Build(doc, today, config.Default())
 	if !b.IsClear() {
-		t.Errorf("выполненная задача попала в сводку: %+v", b)
+		t.Errorf("a completed task landed in the briefing: %+v", b)
 	}
 	if b.Total() != 0 {
-		t.Errorf("всего открытых: %d, ожидалось 0", b.Total())
+		t.Errorf("total open: %d, want 0", b.Total())
 	}
 }
 
@@ -304,12 +304,12 @@ func TestAllClear(t *testing.T) {
 		name string
 		doc  *mdstore.Document
 	}{
-		{"пустой документ", &mdstore.Document{Preamble: []string{mdstore.DefaultPreamble}}},
-		{"только спокойные задачи", &mdstore.Document{Sections: []mdstore.Section{{
-			Name: "Работа",
+		{"empty document", &mdstore.Document{Preamble: []string{mdstore.DefaultPreamble}}},
+		{"only calm tasks", &mdstore.Document{Sections: []mdstore.Section{{
+			Name: "Work",
 			Tasks: []task.Task{{
-				ID: "T-001", Title: "Спокойная", Section: "Работа",
-				Tier: 3, From: "себя", Due: due("2026-12-31"), Effort: effort("1д"),
+				ID: "T-001", Title: "Calm one", Section: "Work",
+				Tier: 3, From: "self", Due: due("2026-12-31"), Effort: effort("1d"),
 				Created: date("2026-08-26"),
 			}},
 		}}}},
@@ -319,21 +319,21 @@ func TestAllClear(t *testing.T) {
 	for _, c := range cases {
 		b := Build(c.doc, today, config.Default())
 		if !b.IsClear() {
-			t.Errorf("%s: IsClear = false, ожидалось true", c.name)
+			t.Errorf("%s: IsClear = false, want true", c.name)
 		}
 		text := b.Text(alfred)
 		if !strings.Contains(text, alfred.AllClear()) {
-			t.Errorf("%s: в тексте нет фразы «всё спокойно»:\n%s", c.name, text)
+			t.Errorf("%s: the text lacks the all-clear phrase:\n%s", c.name, text)
 		}
 		if !strings.Contains(text, alfred.Signoff()) {
-			t.Errorf("%s: в тексте нет прощания:\n%s", c.name, text)
+			t.Errorf("%s: the text lacks the sign-off:\n%s", c.name, text)
 		}
 	}
 }
 
 func TestTextGolden(t *testing.T) {
 	b := Build(fixture(), today, config.Default())
-	assertGolden(t, "brief_ru.txt", b.Text(voice.Alfred{}))
+	assertGolden(t, "brief.txt", b.Text(voice.Alfred{}))
 }
 
 // TestTextDeterministic is the property the whole voice package is built for:
@@ -342,7 +342,7 @@ func TestTextDeterministic(t *testing.T) {
 	first := Build(fixture(), today, config.Default()).Text(voice.Alfred{})
 	second := Build(fixture(), today, config.Default()).Text(voice.Alfred{})
 	if first != second {
-		t.Errorf("два прогона за один день разошлись:\n%s\n---\n%s", first, second)
+		t.Errorf("two runs on one day diverged:\n%s\n---\n%s", first, second)
 	}
 }
 
@@ -351,7 +351,7 @@ func TestTextDeterministic(t *testing.T) {
 func TestTextNilPersona(t *testing.T) {
 	text := Build(fixture(), today, config.Default()).Text(nil)
 	if !strings.Contains(text, voice.Alfred{}.Signoff()) {
-		t.Errorf("без персоны получен не альфредовский текст:\n%s", text)
+		t.Errorf("without a persona the text is not Alfred's:\n%s", text)
 	}
 }
 
@@ -370,13 +370,13 @@ func TestTextMentionsEveryReportedTask(t *testing.T) {
 	}
 	for _, rt := range reported {
 		if !strings.Contains(text, rt.Title) {
-			t.Errorf("«%s» отсутствует в сводке:\n%s", rt.Title, text)
+			t.Errorf("«%s» missing from the briefing:\n%s", rt.Title, text)
 		}
 	}
 	for _, g := range b.Groups {
 		for _, gt := range g.Tasks {
 			if !strings.Contains(text, gt.ID) {
-				t.Errorf("%s не упомянут в группе %q:\n%s", gt.ID, g.Key, text)
+				t.Errorf("%s not mentioned in group %q:\n%s", gt.ID, g.Key, text)
 			}
 		}
 	}
@@ -390,11 +390,11 @@ func TestJSONHasEveryBucket(t *testing.T) {
 
 	var out map[string]json.RawMessage
 	if err := json.Unmarshal(data, &out); err != nil {
-		t.Fatalf("разбор JSON: %v\n%s", err, data)
+		t.Fatalf("JSON decode: %v\n%s", err, data)
 	}
 	for _, key := range []string{"date", "all_clear", "total", "counts", "overdue", "start_now", "soon", "groups", "complaints"} {
 		if _, ok := out[key]; !ok {
-			t.Errorf("в JSON нет поля %q:\n%s", key, data)
+			t.Errorf("JSON lacks field %q:\n%s", key, data)
 		}
 	}
 }
@@ -440,35 +440,35 @@ func TestJSONRoundTrip(t *testing.T) {
 		} `json:"complaints"`
 	}
 	if err := json.Unmarshal(data, &out); err != nil {
-		t.Fatalf("разбор JSON: %v\n%s", err, data)
+		t.Fatalf("JSON decode: %v\n%s", err, data)
 	}
 
 	if out.Date != "2026-08-27" {
-		t.Errorf("date = %q, ожидалось 2026-08-27", out.Date)
+		t.Errorf("date = %q, want 2026-08-27", out.Date)
 	}
 	if out.AllClear {
-		t.Error("all_clear = true, хотя есть просроченное")
+		t.Error("all_clear = true despite an overdue task")
 	}
 	if out.Total != 6 || out.Counts["1"] != 3 {
-		t.Errorf("total = %d, counts = %v, ожидалось 6 и 3 задачи первого тира", out.Total, out.Counts)
+		t.Errorf("total = %d, counts = %v, want 6 and 3 tier-1 tasks", out.Total, out.Counts)
 	}
 	if len(out.Overdue) != 1 || out.Overdue[0].ID != "T-004" {
-		t.Fatalf("overdue = %+v, ожидалась одна T-004", out.Overdue)
+		t.Fatalf("overdue = %+v, want only T-004", out.Overdue)
 	}
 	if out.Overdue[0].Status != task.StatusOverdue.String() || out.Overdue[0].DaysOverdue != 3 {
-		t.Errorf("overdue[0] = %+v, ожидалось «просрочено», 3 дня", out.Overdue[0])
+		t.Errorf("overdue[0] = %+v, want «overdue», 3 days", out.Overdue[0])
 	}
 	if len(out.StartNow) != 1 || out.StartNow[0].LatestStart != "2026-08-26" {
-		t.Errorf("start_now = %+v, ожидался последний старт 2026-08-26", out.StartNow)
+		t.Errorf("start_now = %+v, want latest start 2026-08-26", out.StartNow)
 	}
 	if len(out.Soon) != 2 || out.Soon[0].ID != "T-001" || out.Soon[0].DaysUntilStart != 1 {
-		t.Errorf("soon = %+v, ожидалась T-001 через день", out.Soon)
+		t.Errorf("soon = %+v, want T-001 in a day", out.Soon)
 	}
-	if len(out.Groups) != 2 || out.Groups[0].Key != "@город" || len(out.Groups[0].Tasks) != 3 {
-		t.Errorf("groups = %+v, ожидалась группа @город из трёх задач", out.Groups)
+	if len(out.Groups) != 2 || out.Groups[0].Key != "@town" || len(out.Groups[0].Tasks) != 3 {
+		t.Errorf("groups = %+v, want a @town group of three tasks", out.Groups)
 	}
 	if len(out.Complaints) != 3 || out.Complaints[0].Flag != schedule.FlagIncomplete.String() {
-		t.Errorf("complaints = %+v, ожидалось три, первое — неполные данные", out.Complaints)
+		t.Errorf("complaints = %+v, want three, the first one incomplete data", out.Complaints)
 	}
 }
 
@@ -490,16 +490,16 @@ func TestJSONAllClearEmptyBuckets(t *testing.T) {
 		Complaints []interface{} `json:"complaints"`
 	}
 	if err := json.Unmarshal(data, &out); err != nil {
-		t.Fatalf("разбор JSON: %v\n%s", err, data)
+		t.Fatalf("JSON decode: %v\n%s", err, data)
 	}
 	if !out.AllClear {
-		t.Error("all_clear = false для пустого документа")
+		t.Error("all_clear = false for an empty document")
 	}
 	if strings.Contains(string(data), "null") {
-		t.Errorf("в пустой сводке есть null:\n%s", data)
+		t.Errorf("null in an empty briefing:\n%s", data)
 	}
 	if out.Overdue == nil || out.StartNow == nil || out.Soon == nil || out.Groups == nil || out.Complaints == nil {
-		t.Errorf("не все корзины пришли списками:\n%s", data)
+		t.Errorf("not every bucket came as a list:\n%s", data)
 	}
 }
 
@@ -507,9 +507,9 @@ func TestJSONAllClearEmptyBuckets(t *testing.T) {
 func TestBuildNilConfig(t *testing.T) {
 	b := Build(fixture(), today, nil)
 	if len(b.Overdue) != 1 {
-		t.Errorf("с nil-конфигом просроченных %d, ожидалась 1", len(b.Overdue))
+		t.Errorf("with a nil config overdue = %d, want 1", len(b.Overdue))
 	}
 	if text := b.Text(voice.Alfred{}); text == "" {
-		t.Error("с nil-конфигом текст пуст")
+		t.Error("with a nil config the text is empty")
 	}
 }

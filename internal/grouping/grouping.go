@@ -1,10 +1,10 @@
 // Package grouping proposes batches of duties that are convenient to do in one
-// go: one trip to town, one conversation with Марина, one evening spent on the
+// go: one trip to town, one conversation with Helen, one evening spent on the
 // move.
 //
 // The signals are ranked by how reliably they mean "the same errand". A shared
-// контекст is a place or a tool, so it is nearly always right. A shared от is a
-// person you will be talking to anyway. A shared метка only says the duties are
+// context is a place or a tool, so it is nearly always right. A shared from is a
+// person you will be talking to anyway. A shared label only says the duties are
 // about the same subject, which is a weaker hint and therefore needs a bigger
 // pile before it is worth mentioning.
 //
@@ -34,13 +34,13 @@ const (
 func (k Kind) String() string {
 	switch k {
 	case KindContext:
-		return "контекст"
+		return "context"
 	case KindPerson:
-		return "от"
+		return "from"
 	case KindLabel:
-		return "метка"
+		return "label"
 	default:
-		return "неизвестно"
+		return "unknown"
 	}
 }
 
@@ -62,7 +62,7 @@ type Group struct {
 	Kind  Kind
 	Key   string
 	Tasks []task.Task
-	// Reason is the factual clause behind the group («общее место: @город»).
+	// Reason is the factual clause behind the group («same place: @town»).
 	// The voice package turns it into something Alfred would actually say.
 	Reason string
 }
@@ -71,7 +71,7 @@ type Group struct {
 func (g Group) Size() int { return len(g.Tasks) }
 
 // TopTier is the importance of the most important duty in the group — the
-// smallest tier number, since tier 1 is критично. It is what the group is
+// smallest tier number, since tier 1 is critical. It is what the group is
 // sorted by, so a batch containing a critical duty is proposed first.
 func (g Group) TopTier() int {
 	top := task.MaxTier
@@ -85,7 +85,7 @@ func (g Group) TopTier() int {
 
 // Build returns the batches worth proposing, most important first.
 //
-// The signals are tried in order — контекст, then от, then метка — and a duty
+// The signals are tried in order — context, then from, then label — and a duty
 // is claimed by the first group it lands in, so nothing is suggested twice.
 // Completed duties are ignored: they are not work any more.
 //
@@ -124,14 +124,14 @@ func passes() []pass {
 			min:  MinContextGroup,
 			keys: func(t task.Task) []string { return []string{t.Context} },
 			reason: func(key string) string {
-				return fmt.Sprintf("общее место: %s", key)
+				return fmt.Sprintf("same place: %s", key)
 			},
 		},
 		{
 			kind: KindPerson,
 			min:  MinPersonGroup,
 			keys: func(t task.Task) []string {
-				// Duties you set yourself share no conversation, so `от:себя`
+				// Duties you set yourself share no conversation, so `from:self`
 				// is not a reason to batch anything.
 				if t.From == task.SelfAssigned {
 					return nil
@@ -139,7 +139,7 @@ func passes() []pass {
 				return []string{t.From}
 			},
 			reason: func(key string) string {
-				return fmt.Sprintf("один разговор: %s", key)
+				return fmt.Sprintf("one conversation: %s", key)
 			},
 		},
 		{
@@ -147,7 +147,7 @@ func passes() []pass {
 			min:  MinLabelGroup,
 			keys: func(t task.Task) []string { return t.Labels },
 			reason: func(key string) string {
-				return fmt.Sprintf("общая тема: %s", key)
+				return fmt.Sprintf("same theme: %s", key)
 			},
 		},
 	}
@@ -196,7 +196,7 @@ func (p pass) build(tasks []task.Task, claimed []bool) []Group {
 }
 
 // worthProposing applies the signal's threshold, raised to MinBackgroundGroup
-// when every duty in the batch is фоновое.
+// when every duty in the batch is background.
 func worthProposing(tasks []task.Task, members []int, min int) bool {
 	if len(members) < min {
 		return false

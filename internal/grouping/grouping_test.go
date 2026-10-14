@@ -12,7 +12,7 @@ import (
 func mk(id string, tier int, from, context string, labels ...string) task.Task {
 	return task.Task{
 		ID:      id,
-		Title:   "задача " + id,
+		Title:   "task " + id,
 		Tier:    tier,
 		From:    from,
 		Context: context,
@@ -40,57 +40,57 @@ func TestBuild(t *testing.T) {
 		want  []string
 	}{
 		{
-			name: "два дела в одном месте — группа по контексту",
+			name: "two duties in one place — a context group",
 			tasks: []task.Task{
-				mk("T-001", 1, "Марина", "@город"),
-				mk("T-002", 2, "себя", "@город"),
+				mk("T-001", 1, "Helen", "@town"),
+				mk("T-002", 2, "self", "@town"),
 			},
-			want: []string{"контекст/@город:[T-001 T-002]"},
+			want: []string{"context/@town:[T-001 T-002]"},
 		},
 		{
-			name: "два дела от одного человека — группа по от",
+			name: "two duties from one person — a from group",
 			tasks: []task.Task{
-				mk("T-001", 2, "Марина", ""),
-				mk("T-002", 2, "Марина", "@дом"),
+				mk("T-001", 2, "Helen", ""),
+				mk("T-002", 2, "Helen", "@home"),
 			},
-			want: []string{"от/Марина:[T-001 T-002]"},
+			want: []string{"from/Helen:[T-001 T-002]"},
 		},
 		{
-			name: "три дела с общей меткой — группа по метке",
+			name: "three duties with one label — a label group",
 			tasks: []task.Task{
-				mk("T-001", 2, "себя", "", "переезд"),
-				mk("T-002", 2, "себя", "", "переезд"),
-				mk("T-003", 1, "себя", "", "переезд"),
+				mk("T-001", 2, "self", "", "paperwork"),
+				mk("T-002", 2, "self", "", "paperwork"),
+				mk("T-003", 1, "self", "", "paperwork"),
 			},
-			want: []string{"метка/переезд:[T-003 T-001 T-002]"},
+			want: []string{"label/paperwork:[T-003 T-001 T-002]"},
 		},
 		{
-			name: "две метки группу не образуют",
+			name: "two labels make no group",
 			tasks: []task.Task{
-				mk("T-001", 2, "себя", "", "переезд"),
-				mk("T-002", 2, "себя", "", "переезд"),
-			},
-			want: nil,
-		},
-		{
-			name: "от:себя не группирует",
-			tasks: []task.Task{
-				mk("T-001", 2, "себя", ""),
-				mk("T-002", 1, "себя", ""),
-				mk("T-003", 2, "себя", ""),
+				mk("T-001", 2, "self", "", "paperwork"),
+				mk("T-002", 2, "self", "", "paperwork"),
 			},
 			want: nil,
 		},
 		{
-			name: "одиночные ключи группы не дают",
+			name: "from:self does not group",
 			tasks: []task.Task{
-				mk("T-001", 1, "Марина", "@город", "переезд"),
-				mk("T-002", 2, "Анна", "@дом", "работа"),
+				mk("T-001", 2, "self", ""),
+				mk("T-002", 1, "self", ""),
+				mk("T-003", 2, "self", ""),
 			},
 			want: nil,
 		},
 		{
-			name: "пустые контекст и от игнорируются",
+			name: "lone keys make no group",
+			tasks: []task.Task{
+				mk("T-001", 1, "Helen", "@town", "paperwork"),
+				mk("T-002", 2, "Anna", "@home", "work"),
+			},
+			want: nil,
+		},
+		{
+			name: "empty context and from are ignored",
 			tasks: []task.Task{
 				mk("T-001", 1, "", ""),
 				mk("T-002", 2, "", ""),
@@ -98,46 +98,46 @@ func TestBuild(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "выполненные дела не группируются",
+			name: "completed duties are not grouped",
 			tasks: []task.Task{
-				done(mk("T-001", 1, "Марина", "@город")),
-				mk("T-002", 2, "себя", "@город"),
+				done(mk("T-001", 1, "Helen", "@town")),
+				mk("T-002", 2, "self", "@town"),
 			},
 			want: nil,
 		},
 		{
-			name: "контекст важнее человека",
+			name: "context beats person",
 			tasks: []task.Task{
-				mk("T-001", 1, "Марина", "@город"),
-				mk("T-002", 2, "Марина", "@город"),
+				mk("T-001", 1, "Helen", "@town"),
+				mk("T-002", 2, "Helen", "@town"),
 			},
-			want: []string{"контекст/@город:[T-001 T-002]"},
+			want: []string{"context/@town:[T-001 T-002]"},
 		},
 		{
-			name: "группа с тир-1 идёт раньше группы без него",
+			name: "a group with a tier-1 duty comes before one without",
 			tasks: []task.Task{
-				mk("T-001", 2, "себя", "@дом"),
-				mk("T-002", 2, "себя", "@дом"),
-				mk("T-003", 1, "себя", "@город"),
-				mk("T-004", 3, "себя", "@город"),
+				mk("T-001", 2, "self", "@home"),
+				mk("T-002", 2, "self", "@home"),
+				mk("T-003", 1, "self", "@town"),
+				mk("T-004", 3, "self", "@town"),
 			},
 			want: []string{
-				"контекст/@город:[T-003 T-004]",
-				"контекст/@дом:[T-001 T-002]",
+				"context/@town:[T-003 T-004]",
+				"context/@home:[T-001 T-002]",
 			},
 		},
 		{
-			name: "при равной важности больше группа идёт первой",
+			name: "at equal importance the larger group comes first",
 			tasks: []task.Task{
-				mk("T-001", 2, "себя", "@дом"),
-				mk("T-002", 2, "себя", "@дом"),
-				mk("T-003", 2, "себя", "@город"),
-				mk("T-004", 2, "себя", "@город"),
-				mk("T-005", 2, "себя", "@город"),
+				mk("T-001", 2, "self", "@home"),
+				mk("T-002", 2, "self", "@home"),
+				mk("T-003", 2, "self", "@town"),
+				mk("T-004", 2, "self", "@town"),
+				mk("T-005", 2, "self", "@town"),
 			},
 			want: []string{
-				"контекст/@город:[T-003 T-004 T-005]",
-				"контекст/@дом:[T-001 T-002]",
+				"context/@town:[T-003 T-004 T-005]",
+				"context/@home:[T-001 T-002]",
 			},
 		},
 	}
@@ -150,7 +150,7 @@ func TestBuild(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("Build() = %v, ожидалось %v", got, tc.want)
+				t.Errorf("Build() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -169,35 +169,35 @@ func TestBuildBackgroundThreshold(t *testing.T) {
 		want  []string
 	}{
 		{
-			name: "две фоновые задачи группы не образуют",
+			name: "two background duties make no group",
 			tasks: []task.Task{
-				mk("T-001", 3, "себя", "@город"),
-				mk("T-002", 3, "себя", "@город"),
+				mk("T-001", 3, "self", "@town"),
+				mk("T-002", 3, "self", "@town"),
 			},
 			want: nil,
 		},
 		{
-			name: "три фоновые задачи образуют группу",
+			name: "three background duties make a group",
 			tasks: []task.Task{
-				mk("T-001", 3, "себя", "@город"),
-				mk("T-002", 3, "себя", "@город"),
-				mk("T-003", 3, "себя", "@город"),
+				mk("T-001", 3, "self", "@town"),
+				mk("T-002", 3, "self", "@town"),
+				mk("T-003", 3, "self", "@town"),
 			},
-			want: []string{"контекст/@город:[T-001 T-002 T-003]"},
+			want: []string{"context/@town:[T-001 T-002 T-003]"},
 		},
 		{
-			name: "две задачи с одной не фоновой образуют группу",
+			name: "two duties with one non-background make a group",
 			tasks: []task.Task{
-				mk("T-001", 3, "себя", "@город"),
-				mk("T-002", 2, "себя", "@город"),
+				mk("T-001", 3, "self", "@town"),
+				mk("T-002", 2, "self", "@town"),
 			},
-			want: []string{"контекст/@город:[T-002 T-001]"},
+			want: []string{"context/@town:[T-002 T-001]"},
 		},
 		{
-			name: "две фоновые задачи от одного человека группы не образуют",
+			name: "two background duties from one person make no group",
 			tasks: []task.Task{
-				mk("T-001", 3, "Марина", ""),
-				mk("T-002", 3, "Марина", ""),
+				mk("T-001", 3, "Helen", ""),
+				mk("T-002", 3, "Helen", ""),
 			},
 			want: nil,
 		},
@@ -211,7 +211,7 @@ func TestBuildBackgroundThreshold(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("Build() = %v, ожидалось %v", got, tc.want)
+				t.Errorf("Build() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -220,16 +220,16 @@ func TestBuildBackgroundThreshold(t *testing.T) {
 // A duty that fits two signals at once must be claimed by exactly one of them.
 func TestBuildClaimsEachTaskOnce(t *testing.T) {
 	tasks := []task.Task{
-		// T-001 could join the @город batch and the Марина batch.
-		mk("T-001", 1, "Марина", "@город"),
-		mk("T-002", 2, "себя", "@город"),
-		mk("T-003", 2, "Марина", "@дом"),
+		// T-001 could join the @town batch and the Helen batch.
+		mk("T-001", 1, "Helen", "@town"),
+		mk("T-002", 2, "self", "@town"),
+		mk("T-003", 2, "Helen", "@home"),
 		// Two labels on one duty: it may only join the first of them.
-		mk("T-004", 2, "себя", "", "переезд", "финансы"),
-		mk("T-005", 2, "себя", "", "переезд"),
-		mk("T-006", 2, "себя", "", "переезд"),
-		mk("T-007", 2, "себя", "", "финансы"),
-		mk("T-008", 2, "себя", "", "финансы"),
+		mk("T-004", 2, "self", "", "paperwork", "taxes"),
+		mk("T-005", 2, "self", "", "paperwork"),
+		mk("T-006", 2, "self", "", "paperwork"),
+		mk("T-007", 2, "self", "", "taxes"),
+		mk("T-008", 2, "self", "", "taxes"),
 	}
 
 	groups := Build(tasks, nil)
@@ -238,40 +238,40 @@ func TestBuildClaimsEachTaskOnce(t *testing.T) {
 	for _, g := range groups {
 		for _, dt := range g.Tasks {
 			if where, dup := seen[dt.ID]; dup {
-				t.Fatalf("задача %s попала и в %s, и в %s", dt.ID, where, g.Key)
+				t.Fatalf("task %s landed in both %s and %s", dt.ID, where, g.Key)
 			}
 			seen[dt.ID] = g.Key
 		}
 	}
 
-	if got := seen["T-001"]; got != "@город" {
-		t.Errorf("T-001 в группе %q, ожидался @город (контекст важнее человека)", got)
+	if got := seen["T-001"]; got != "@town" {
+		t.Errorf("T-001 in group %q, want @town (context beats person)", got)
 	}
-	if got := seen["T-004"]; got != "переезд" {
-		t.Errorf("T-004 в группе %q, ожидалась переезд (ключи в отсортированном порядке)", got)
+	if got := seen["T-004"]; got != "paperwork" {
+		t.Errorf("T-004 in group %q, want paperwork (keys in sorted order)", got)
 	}
-	// Марина keeps only T-003 once T-001 is claimed, so no person group forms;
-	// финансы keeps only T-007 and T-008, below the label threshold.
-	if got, want := summary(groups), []string{"контекст/@город:[T-001 T-002]", "метка/переезд:[T-004 T-005 T-006]"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("Build() = %v, ожидалось %v", got, want)
+	// Helen keeps only T-003 once T-001 is claimed, so no person group forms;
+	// taxes keeps only T-007 and T-008, below the label threshold.
+	if got, want := summary(groups), []string{"context/@town:[T-001 T-002]", "label/paperwork:[T-004 T-005 T-006]"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Build() = %v, want %v", got, want)
 	}
 }
 
 // The order the artifact happens to be in must not change the proposals.
 func TestBuildDeterministic(t *testing.T) {
 	tasks := []task.Task{
-		mk("T-001", 1, "Марина", "@город"),
-		mk("T-002", 2, "себя", "@город"),
-		mk("T-003", 2, "Анна", "@дом", "работа"),
-		mk("T-004", 3, "Анна", "@телефон", "работа"),
-		mk("T-005", 2, "себя", "", "работа"),
-		mk("T-006", 3, "себя", "", "переезд"),
-		mk("T-007", 2, "Марина", "@город"),
+		mk("T-001", 1, "Helen", "@town"),
+		mk("T-002", 2, "self", "@town"),
+		mk("T-003", 2, "Anna", "@home", "work"),
+		mk("T-004", 3, "Anna", "@phone", "work"),
+		mk("T-005", 2, "self", "", "work"),
+		mk("T-006", 3, "self", "", "paperwork"),
+		mk("T-007", 2, "Helen", "@town"),
 	}
 
 	want := Build(tasks, nil)
 	if len(want) == 0 {
-		t.Fatal("фикстура не даёт ни одной группы")
+		t.Fatal("fixture yields no groups")
 	}
 
 	// Every rotation of the same input is the same set of duties in a different
@@ -279,13 +279,13 @@ func TestBuildDeterministic(t *testing.T) {
 	for shift := 1; shift < len(tasks); shift++ {
 		shuffled := append(append([]task.Task{}, tasks[shift:]...), tasks[:shift]...)
 		if got := Build(shuffled, nil); !reflect.DeepEqual(got, want) {
-			t.Errorf("сдвиг %d: Build() = %v, ожидалось %v", shift, summary(got), summary(want))
+			t.Errorf("shift %d: Build() = %v, want %v", shift, summary(got), summary(want))
 		}
 	}
 
 	// And twice over the same input, in case a map iteration leaks through.
 	if got := Build(tasks, nil); !reflect.DeepEqual(got, want) {
-		t.Errorf("повторный вызов дал %v, ожидалось %v", summary(got), summary(want))
+		t.Errorf("second call gave %v, want %v", summary(got), summary(want))
 	}
 }
 
@@ -294,53 +294,53 @@ func TestKindString(t *testing.T) {
 		kind Kind
 		want string
 	}{
-		{KindContext, "контекст"},
-		{KindPerson, "от"},
-		{KindLabel, "метка"},
-		{Kind(99), "неизвестно"},
+		{KindContext, "context"},
+		{KindPerson, "from"},
+		{KindLabel, "label"},
+		{Kind(99), "unknown"},
 	}
 	for _, tc := range tests {
 		if got := tc.kind.String(); got != tc.want {
-			t.Errorf("Kind(%d).String() = %q, ожидалось %q", tc.kind, got, tc.want)
+			t.Errorf("Kind(%d).String() = %q, want %q", tc.kind, got, tc.want)
 		}
 	}
 }
 
 func TestGroupTopTierAndSize(t *testing.T) {
-	g := Group{Tasks: []task.Task{mk("T-001", 3, "себя", "@дом"), mk("T-002", 2, "себя", "@дом")}}
+	g := Group{Tasks: []task.Task{mk("T-001", 3, "self", "@home"), mk("T-002", 2, "self", "@home")}}
 	if got := g.TopTier(); got != 2 {
-		t.Errorf("TopTier() = %d, ожидалось 2", got)
+		t.Errorf("TopTier() = %d, want 2", got)
 	}
 	if got := g.Size(); got != 2 {
-		t.Errorf("Size() = %d, ожидалось 2", got)
+		t.Errorf("Size() = %d, want 2", got)
 	}
 	if got := (Group{}).TopTier(); got != task.MaxTier {
-		t.Errorf("TopTier() пустой группы = %d, ожидалось %d", got, task.MaxTier)
+		t.Errorf("TopTier() of an empty group = %d, want %d", got, task.MaxTier)
 	}
 }
 
 func TestBuildReason(t *testing.T) {
 	groups := Build([]task.Task{
-		mk("T-001", 2, "Марина", "@город"),
-		mk("T-002", 2, "себя", "@город"),
-		mk("T-003", 2, "Анна", ""),
-		mk("T-004", 2, "Анна", ""),
-		mk("T-005", 2, "себя", "", "переезд"),
-		mk("T-006", 2, "себя", "", "переезд"),
-		mk("T-007", 2, "себя", "", "переезд"),
+		mk("T-001", 2, "Helen", "@town"),
+		mk("T-002", 2, "self", "@town"),
+		mk("T-003", 2, "Anna", ""),
+		mk("T-004", 2, "Anna", ""),
+		mk("T-005", 2, "self", "", "paperwork"),
+		mk("T-006", 2, "self", "", "paperwork"),
+		mk("T-007", 2, "self", "", "paperwork"),
 	}, nil)
 
 	want := map[string]string{
-		"@город":  "общее место: @город",
-		"Анна":    "один разговор: Анна",
-		"переезд": "общая тема: переезд",
+		"@town":     "same place: @town",
+		"Anna":      "one conversation: Anna",
+		"paperwork": "same theme: paperwork",
 	}
 	if len(groups) != len(want) {
-		t.Fatalf("получено %d групп, ожидалось %d: %v", len(groups), len(want), summary(groups))
+		t.Fatalf("got %d groups, want %d: %v", len(groups), len(want), summary(groups))
 	}
 	for _, g := range groups {
 		if got := g.Reason; got != want[g.Key] {
-			t.Errorf("Reason группы %q = %q, ожидалось %q", g.Key, got, want[g.Key])
+			t.Errorf("Reason of group %q = %q, want %q", g.Key, got, want[g.Key])
 		}
 	}
 }

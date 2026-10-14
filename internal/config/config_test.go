@@ -21,12 +21,12 @@ const fullYAML = `
 persona: alfred
 artifact: docs/duties.md
 archive: docs/duties-archive.md
-sections: [Работа, Личное, Дом, Здоровье, Отношения, Финансы]
-contexts: ["@город", "@дом", "@телефон", "@компьютер", "@работа"]
+sections: [Work, Personal, Home, Health, Relationships, Finance]
+contexts: ["@town", "@home", "@phone", "@computer", "@work"]
 tiers:
-  "1": {name: Критично, buffer_min_days: 2, buffer_ratio: 0.5}
-  "2": {name: Важно,    buffer_min_days: 1, buffer_ratio: 0.25}
-  "3": {name: Фоновое,  buffer_min_days: 0, buffer_ratio: 0}
+  "1": {name: Critical, buffer_min_days: 2, buffer_ratio: 0.5}
+  "2": {name: Important,    buffer_min_days: 1, buffer_ratio: 0.25}
+  "3": {name: Background,  buffer_min_days: 0, buffer_ratio: 0}
 soon_window_days: 3
 stale_days: 14
 `
@@ -100,7 +100,7 @@ func TestLoad(t *testing.T) {
 			yaml: "tiers:\n  \"2\": {buffer_min_days: 7, buffer_ratio: 0.9}\n",
 			check: func(t *testing.T, c *Config) {
 				got := c.Tier(2)
-				want := TierConfig{Name: "Важно", BufferMinDays: 7, BufferRatio: 0.9}
+				want := TierConfig{Name: "Important", BufferMinDays: 7, BufferRatio: 0.9}
 				if got != want {
 					t.Errorf("Tier(2) = %+v, want %+v", got, want)
 				}
@@ -114,10 +114,10 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name: "explicit zero buffer survives",
-			yaml: "tiers:\n  \"1\": {name: Критично, buffer_min_days: 0, buffer_ratio: 0}\n",
+			yaml: "tiers:\n  \"1\": {name: Critical, buffer_min_days: 0, buffer_ratio: 0}\n",
 			check: func(t *testing.T, c *Config) {
 				got := c.Tier(1)
-				want := TierConfig{Name: "Критично", BufferMinDays: 0, BufferRatio: 0}
+				want := TierConfig{Name: "Critical", BufferMinDays: 0, BufferRatio: 0}
 				if got != want {
 					t.Errorf("Tier(1) = %+v, want %+v", got, want)
 				}
@@ -125,10 +125,10 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name: "custom sections replace defaults entirely",
-			yaml: "sections: [Гараж]\n",
+			yaml: "sections: [Garage]\n",
 			check: func(t *testing.T, c *Config) {
-				if !reflect.DeepEqual(c.Sections, []string{"Гараж"}) {
-					t.Errorf("Sections = %v, want [Гараж]", c.Sections)
+				if !reflect.DeepEqual(c.Sections, []string{"Garage"}) {
+					t.Errorf("Sections = %v, want [Garage]", c.Sections)
 				}
 			},
 		},
@@ -139,7 +139,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name:    "wrong type for a field",
-			yaml:    "soon_window_days: не число\n",
+			yaml:    "soon_window_days: nope\n",
 			wantErr: true,
 		},
 	}
@@ -185,7 +185,7 @@ func TestLoadRepoConfig(t *testing.T) {
 		t.Fatalf("Load(secretary.yml) error = %v", err)
 	}
 	if len(got.Sections) == 0 {
-		t.Error("secretary.yml не объявляет ни одного раздела")
+		t.Error("secretary.yml declares no sections")
 	}
 
 	normalised := *got
@@ -210,9 +210,9 @@ func TestTier(t *testing.T) {
 		n    int
 		want TierConfig
 	}{
-		{"tier 1", 1, TierConfig{Name: "Критично", BufferMinDays: 2, BufferRatio: 0.5}},
-		{"tier 2", 2, TierConfig{Name: "Важно", BufferMinDays: 1, BufferRatio: 0.25}},
-		{"tier 3", 3, TierConfig{Name: "Фоновое", BufferMinDays: 0, BufferRatio: 0}},
+		{"tier 1", 1, TierConfig{Name: "Critical", BufferMinDays: 2, BufferRatio: 0.5}},
+		{"tier 2", 2, TierConfig{Name: "Important", BufferMinDays: 1, BufferRatio: 0.25}},
+		{"tier 3", 3, TierConfig{Name: "Background", BufferMinDays: 0, BufferRatio: 0}},
 		{"zero", 0, TierConfig{}},
 		{"negative", -1, TierConfig{}},
 		{"above range", 4, TierConfig{}},
@@ -243,12 +243,12 @@ func TestHasSection(t *testing.T) {
 		section string
 		want    bool
 	}{
-		{"first section", "Работа", true},
-		{"last section", "Финансы", true},
-		{"unknown section", "Гараж", false},
+		{"first section", "Work", true},
+		{"last section", "Finance", true},
+		{"unknown section", "Garage", false},
 		{"empty string", "", false},
-		{"case sensitive", "работа", false},
-		{"whitespace not trimmed", " Работа", false},
+		{"case sensitive", "work", false},
+		{"whitespace not trimmed", " Work", false},
 	}
 
 	for _, tt := range tests {
@@ -263,7 +263,7 @@ func TestHasSection(t *testing.T) {
 
 func TestHasSectionNoSections(t *testing.T) {
 	cfg := &Config{}
-	if cfg.HasSection("Работа") {
+	if cfg.HasSection("Work") {
 		t.Error("HasSection on a config with no sections = true, want false")
 	}
 }

@@ -1,4 +1,4 @@
-# secretary — сборка, тесты, установка.
+# secretary — build, test, install.
 #
 # The binary is a single package with no code generation and no build tags, so
 # these three targets are the whole of it.

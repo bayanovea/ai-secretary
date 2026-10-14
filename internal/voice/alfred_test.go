@@ -23,14 +23,14 @@ func sampleTask() task.Task {
 	due := day("2026-09-05")
 	return task.Task{
 		ID:        "T-001",
-		Title:     "Подготовить отчёт за Q3",
-		Section:   "Работа",
+		Title:     "Prepare the Q3 report",
+		Section:   "Work",
 		Tier:      1,
-		From:      "Анна Петрова",
+		From:      "Dana Whitfield",
 		Due:       &due,
 		Effort:    5,
-		Context:   "@компьютер",
-		Labels:    []string{"отчётность", "финансы"},
+		Context:   "@computer",
+		Labels:    []string{"reporting", "finance"},
 		Deferrals: 2,
 		Created:   day("2026-08-01"),
 	}
@@ -40,8 +40,8 @@ func sampleGroup(kind grouping.Kind, key string) grouping.Group {
 	a := sampleTask()
 	b := sampleTask()
 	b.ID = "T-002"
-	b.Title = "Забрать документы у нотариуса"
-	return grouping.Group{Kind: kind, Key: key, Tasks: []task.Task{a, b}, Reason: "тест"}
+	b.Title = "Collect the documents from the notary"
+	return grouping.Group{Kind: kind, Key: key, Tasks: []task.Task{a, b}, Reason: "test"}
 }
 
 // everyPhrase calls every Persona method once, labelled, so the non-empty and
@@ -53,34 +53,34 @@ func everyPhrase(p Persona) map[string]string {
 	forgotten.Due = nil
 
 	return map[string]string{
-		"Greeting":           p.Greeting(day("2026-08-27")),
-		"Overdue":            p.Overdue(t, 3),
-		"StartNow":           p.StartNow(t),
-		"Soon":               p.Soon(t, 2),
-		"GroupIntro/context": p.GroupIntro(sampleGroup(grouping.KindContext, "@город")),
-		"GroupIntro/person":  p.GroupIntro(sampleGroup(grouping.KindPerson, "Марина")),
-		"GroupIntro/label":   p.GroupIntro(sampleGroup(grouping.KindLabel, "переезд")),
-		"Complaint/неполные": p.Complaint(schedule.FlagIncomplete, t),
-		"Complaint/переносы": p.Complaint(schedule.FlagPostponed, t),
-		"Complaint/забыто":   p.Complaint(schedule.FlagForgotten, forgotten),
-		"Complaint/неизв":    p.Complaint(schedule.Flag(42), t),
-		"AllClear":           p.AllClear(),
-		"Signoff":            p.Signoff(),
+		"Greeting":             p.Greeting(day("2026-08-27")),
+		"Overdue":              p.Overdue(t, 3),
+		"StartNow":             p.StartNow(t),
+		"Soon":                 p.Soon(t, 2),
+		"GroupIntro/context":   p.GroupIntro(sampleGroup(grouping.KindContext, "@town")),
+		"GroupIntro/person":    p.GroupIntro(sampleGroup(grouping.KindPerson, "Helen")),
+		"GroupIntro/label":     p.GroupIntro(sampleGroup(grouping.KindLabel, "paperwork")),
+		"Complaint/incomplete": p.Complaint(schedule.FlagIncomplete, t),
+		"Complaint/postponed":  p.Complaint(schedule.FlagPostponed, t),
+		"Complaint/forgotten":  p.Complaint(schedule.FlagForgotten, forgotten),
+		"Complaint/unknown":    p.Complaint(schedule.Flag(42), t),
+		"AllClear":             p.AllClear(),
+		"Signoff":              p.Signoff(),
 	}
 }
 
 func TestAlfredEveryMethodSpeaks(t *testing.T) {
 	for name, phrase := range everyPhrase(Alfred{}) {
 		if strings.TrimSpace(phrase) == "" {
-			t.Errorf("%s: пустая фраза", name)
+			t.Errorf("%s: empty phrase", name)
 		}
 		// A template with the wrong number of arguments shows up as %!s(...)
 		// or %!(EXTRA ...) rather than as a failure, so it is checked here.
 		if strings.Contains(phrase, "%!") || strings.Contains(phrase, "%s") {
-			t.Errorf("%s: незаполненный шаблон: %q", name, phrase)
+			t.Errorf("%s: unfilled template: %q", name, phrase)
 		}
-		if !strings.Contains(strings.ToLower(phrase), "сэр") {
-			t.Errorf("%s: Альфред обязан обращаться к сэру: %q", name, phrase)
+		if !strings.Contains(strings.ToLower(phrase), "sir") {
+			t.Errorf("%s: Alfred must address the user as sir: %q", name, phrase)
 		}
 	}
 }
@@ -89,7 +89,7 @@ func TestAlfredDeterministic(t *testing.T) {
 	first, second := everyPhrase(Alfred{}), everyPhrase(Alfred{})
 	for name, want := range first {
 		if got := second[name]; got != want {
-			t.Errorf("%s: две выдачи различаются:\n%q\n%q", name, want, got)
+			t.Errorf("%s: two outputs differ:\n%q\n%q", name, want, got)
 		}
 	}
 }
@@ -105,7 +105,7 @@ func TestAlfredDeterministicAcrossInstances(t *testing.T) {
 	}
 	for name, want := range everyPhrase(a) {
 		if got := everyPhrase(b)[name]; got != want {
-			t.Errorf("%s: разные экземпляры говорят по-разному:\n%q\n%q", name, want, got)
+			t.Errorf("%s: different instances speak differently:\n%q\n%q", name, want, got)
 		}
 	}
 }
@@ -119,19 +119,19 @@ func TestAlfredVariesOverTime(t *testing.T) {
 		speak func(i int) string
 	}{
 		{
-			name:  "Greeting по дням",
+			name:  "Greeting by day",
 			speak: func(i int) string { return alfred.Greeting(day("2026-08-01").AddDate(0, 0, i)) },
 		},
 		{
-			name:  "Overdue по числу дней",
+			name:  "Overdue by day count",
 			speak: func(i int) string { return alfred.Overdue(sample, i+1) },
 		},
 		{
-			name:  "Soon по числу дней",
+			name:  "Soon by day count",
 			speak: func(i int) string { return alfred.Soon(sample, i+1) },
 		},
 		{
-			name: "StartNow по задачам",
+			name: "StartNow by task",
 			speak: func(i int) string {
 				other := sample
 				other.ID = "T-10" + string(rune('0'+i%10))
@@ -139,7 +139,7 @@ func TestAlfredVariesOverTime(t *testing.T) {
 			},
 		},
 		{
-			name: "Complaint по задачам",
+			name: "Complaint by task",
 			speak: func(i int) string {
 				other := sample
 				other.ID = "T-20" + string(rune('0'+i%10))
@@ -147,9 +147,9 @@ func TestAlfredVariesOverTime(t *testing.T) {
 			},
 		},
 		{
-			name: "GroupIntro по ключам",
+			name: "GroupIntro by key",
 			speak: func(i int) string {
-				return alfred.GroupIntro(sampleGroup(grouping.KindContext, "@место"+string(rune('a'+i%20))))
+				return alfred.GroupIntro(sampleGroup(grouping.KindContext, "@place"+string(rune('a'+i%20))))
 			},
 		},
 	}
@@ -160,7 +160,7 @@ func TestAlfredVariesOverTime(t *testing.T) {
 			distinct[c.speak(i)] = true
 		}
 		if len(distinct) < 2 {
-			t.Errorf("%s: за 20 попыток ни одной новой формулировки", c.name)
+			t.Errorf("%s: no new wording in 20 attempts", c.name)
 		}
 	}
 }
@@ -176,24 +176,24 @@ func TestAlfredMentionsTheFacts(t *testing.T) {
 		phrase string
 		want   []string
 	}{
-		{"Greeting содержит дату", alfred.Greeting(day("2026-08-27")), []string{"27 августа"}},
-		{"Overdue содержит название и срок", alfred.Overdue(sample, 3), []string{sample.Title, "3 дня"}},
-		{"Overdue склоняет 1 день", alfred.Overdue(sample, 1), []string{"1 день"}},
-		{"Overdue склоняет 11 дней", alfred.Overdue(sample, 11), []string{"11 дней"}},
-		{"StartNow содержит название", alfred.StartNow(sample), []string{sample.Title}},
-		{"Soon содержит название и срок", alfred.Soon(sample, 2), []string{sample.Title, "2 дня"}},
-		{"GroupIntro содержит ключ", alfred.GroupIntro(sampleGroup(grouping.KindContext, "@город")), []string{"@город"}},
-		{"GroupIntro по человеку", alfred.GroupIntro(sampleGroup(grouping.KindPerson, "Марина")), []string{"Марина"}},
-		{"GroupIntro по метке", alfred.GroupIntro(sampleGroup(grouping.KindLabel, "переезд")), []string{"переезд"}},
-		{"Complaint о переносах", alfred.Complaint(schedule.FlagPostponed, sample), []string{sample.Title, "2 раза"}},
-		{"Complaint о забытом", alfred.Complaint(schedule.FlagForgotten, forgotten), []string{forgotten.Title, "1 августа"}},
-		{"Complaint о неполных данных", alfred.Complaint(schedule.FlagIncomplete, sample), []string{sample.Title}},
+		{"Greeting contains the date", alfred.Greeting(day("2026-08-27")), []string{"27 August"}},
+		{"Overdue contains the title and the count", alfred.Overdue(sample, 3), []string{sample.Title, "3 days"}},
+		{"Overdue inflects 1 day", alfred.Overdue(sample, 1), []string{"1 day"}},
+		{"Overdue inflects 11 days", alfred.Overdue(sample, 11), []string{"11 days"}},
+		{"StartNow contains the title", alfred.StartNow(sample), []string{sample.Title}},
+		{"Soon contains the title and the count", alfred.Soon(sample, 2), []string{sample.Title, "2 days"}},
+		{"GroupIntro contains the key", alfred.GroupIntro(sampleGroup(grouping.KindContext, "@town")), []string{"@town"}},
+		{"GroupIntro by person", alfred.GroupIntro(sampleGroup(grouping.KindPerson, "Helen")), []string{"Helen"}},
+		{"GroupIntro by label", alfred.GroupIntro(sampleGroup(grouping.KindLabel, "paperwork")), []string{"paperwork"}},
+		{"Complaint about deferrals", alfred.Complaint(schedule.FlagPostponed, sample), []string{sample.Title, "2 times"}},
+		{"Complaint about a forgotten duty", alfred.Complaint(schedule.FlagForgotten, forgotten), []string{forgotten.Title, "1 August"}},
+		{"Complaint about incomplete data", alfred.Complaint(schedule.FlagIncomplete, sample), []string{sample.Title}},
 	}
 
 	for _, c := range cases {
 		for _, want := range c.want {
 			if !strings.Contains(c.phrase, want) {
-				t.Errorf("%s: %q не содержит %q", c.name, c.phrase, want)
+				t.Errorf("%s: %q does not contain %q", c.name, c.phrase, want)
 			}
 		}
 	}
@@ -205,25 +205,25 @@ func TestGet(t *testing.T) {
 		persona string
 		wantErr bool
 	}{
-		{"известная персона", "alfred", false},
-		{"регистр не важен", "Alfred", false},
-		{"пробелы обрезаются", "  alfred  ", false},
-		{"неизвестная персона", "batman", true},
-		{"пустое имя", "", true},
-		{"только пробелы", "   ", true},
+		{"known persona", "alfred", false},
+		{"case does not matter", "Alfred", false},
+		{"whitespace is trimmed", "  alfred  ", false},
+		{"unknown persona", "batman", true},
+		{"empty name", "", true},
+		{"whitespace only", "   ", true},
 	}
 
 	for _, c := range cases {
 		p, err := Get(c.persona)
 		switch {
 		case c.wantErr && err == nil:
-			t.Errorf("%s: ожидалась ошибка, получена персона %T", c.name, p)
+			t.Errorf("%s: want an error, got persona %T", c.name, p)
 		case c.wantErr && !errors.Is(err, ErrUnknownPersona):
-			t.Errorf("%s: ожидалась ErrUnknownPersona, получено %v", c.name, err)
+			t.Errorf("%s: want ErrUnknownPersona, got %v", c.name, err)
 		case !c.wantErr && err != nil:
-			t.Errorf("%s: неожиданная ошибка %v", c.name, err)
+			t.Errorf("%s: unexpected error %v", c.name, err)
 		case !c.wantErr && p == nil:
-			t.Errorf("%s: персона не создана", c.name)
+			t.Errorf("%s: persona not created", c.name)
 		}
 	}
 }
@@ -231,7 +231,7 @@ func TestGet(t *testing.T) {
 func TestNames(t *testing.T) {
 	names := Names()
 	if len(names) == 0 {
-		t.Fatal("реестр персон пуст")
+		t.Fatal("persona registry is empty")
 	}
 	found := false
 	for _, n := range names {
@@ -240,21 +240,21 @@ func TestNames(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("alfred отсутствует в %v", names)
+		t.Errorf("alfred missing from %v", names)
 	}
 }
 
 func TestPick(t *testing.T) {
-	variants := []string{"а", "б", "в"}
+	variants := []string{"a", "b", "c"}
 
 	if got := pick(nil, "seed"); got != "" {
-		t.Errorf("pick без вариантов вернул %q", got)
+		t.Errorf("pick with no variants returned %q", got)
 	}
-	if got := pick([]string{"единственный"}, "seed"); got != "единственный" {
-		t.Errorf("pick одного варианта вернул %q", got)
+	if got := pick([]string{"only one"}, "seed"); got != "only one" {
+		t.Errorf("pick with one variant returned %q", got)
 	}
 	if a, b := pick(variants, "x", "y"), pick(variants, "x", "y"); a != b {
-		t.Errorf("pick недетерминирован: %q != %q", a, b)
+		t.Errorf("pick is not deterministic: %q != %q", a, b)
 	}
 	// The separator keeps ("ab","c") from colliding with ("a","bc"); the two
 	// need not differ in outcome, but they must hash differently, which the
@@ -264,7 +264,7 @@ func TestPick(t *testing.T) {
 		distinct[pick(variants, "seed", string(rune('a'+i)))] = true
 	}
 	if len(distinct) != len(variants) {
-		t.Errorf("pick покрыл %d вариантов из %d", len(distinct), len(variants))
+		t.Errorf("pick covered %d variants of %d", len(distinct), len(variants))
 	}
 }
 
@@ -273,24 +273,17 @@ func TestPlural(t *testing.T) {
 		n    int
 		want string
 	}{
-		{0, "0 дней"},
-		{1, "1 день"},
-		{2, "2 дня"},
-		{4, "4 дня"},
-		{5, "5 дней"},
-		{11, "11 дней"},
-		{12, "12 дней"},
-		{14, "14 дней"},
-		{21, "21 день"},
-		{22, "22 дня"},
-		{25, "25 дней"},
-		{101, "101 день"},
-		{111, "111 дней"},
-		{-1, "-1 день"},
+		{0, "0 days"},
+		{1, "1 day"},
+		{2, "2 days"},
+		{11, "11 days"},
+		{21, "21 days"},
+		{101, "101 days"},
+		{-1, "-1 day"},
 	}
 	for _, c := range cases {
-		if got := plural(c.n, "день", "дня", "дней"); got != c.want {
-			t.Errorf("plural(%d) = %q, ожидалось %q", c.n, got, c.want)
+		if got := plural(c.n, "day", "days"); got != c.want {
+			t.Errorf("plural(%d) = %q, want %q", c.n, got, c.want)
 		}
 	}
 }
@@ -300,14 +293,14 @@ func TestRussianDate(t *testing.T) {
 		date time.Time
 		want string
 	}{
-		{day("2026-01-01"), "1 января"},
-		{day("2026-08-27"), "27 августа"},
-		{day("2026-12-31"), "31 декабря"},
-		{time.Time{}, "неизвестного числа"},
+		{day("2026-01-01"), "1 January"},
+		{day("2026-08-27"), "27 August"},
+		{day("2026-12-31"), "31 December"},
+		{time.Time{}, "an unknown date"},
 	}
 	for _, c := range cases {
-		if got := russianDate(c.date); got != c.want {
-			t.Errorf("russianDate(%v) = %q, ожидалось %q", c.date, got, c.want)
+		if got := spokenDate(c.date); got != c.want {
+			t.Errorf("spokenDate(%v) = %q, want %q", c.date, got, c.want)
 		}
 	}
 }
@@ -315,12 +308,12 @@ func TestRussianDate(t *testing.T) {
 func TestDueKey(t *testing.T) {
 	withDue := sampleTask()
 	if got := dueKey(withDue); got != "2026-09-05" {
-		t.Errorf("dueKey со сроком = %q", got)
+		t.Errorf("dueKey with a deadline = %q", got)
 	}
 	noDue := sampleTask()
 	noDue.Due = nil
-	if got := dueKey(noDue); got != "без-срока" {
-		t.Errorf("dueKey без срока = %q", got)
+	if got := dueKey(noDue); got != "no-deadline" {
+		t.Errorf("dueKey without a deadline = %q", got)
 	}
 }
 
@@ -329,6 +322,6 @@ func TestGreetingIgnoresClockTime(t *testing.T) {
 	morning := time.Date(2026, 8, 27, 7, 0, 0, 0, time.UTC)
 	evening := time.Date(2026, 8, 27, 23, 30, 0, 0, time.UTC)
 	if alfred.Greeting(morning) != alfred.Greeting(evening) {
-		t.Error("приветствие меняется в течение одного дня")
+		t.Error("greeting changes within one day")
 	}
 }

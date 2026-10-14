@@ -145,19 +145,19 @@ func (b Briefing) Text(p voice.Persona) string {
 	if b.IsClear() {
 		out = append(out, "", p.AllClear())
 	} else {
-		out = appendBlock(out, "Просрочено:", b.Overdue, func(t task.Task) string {
+		out = appendBlock(out, "Overdue:", b.Overdue, func(t task.Task) string {
 			return p.Overdue(t, b.DaysOverdue(t))
 		})
-		out = appendBlock(out, "Начинать сегодня:", b.StartNow, func(t task.Task) string {
+		out = appendBlock(out, "Start today:", b.StartNow, func(t task.Task) string {
 			return p.StartNow(t)
 		})
-		out = appendBlock(out, "Скоро:", b.Soon, func(t task.Task) string {
+		out = appendBlock(out, "Soon:", b.Soon, func(t task.Task) string {
 			return p.Soon(t, b.DaysUntilStart(t))
 		})
 	}
 
 	if len(b.Groups) > 0 {
-		out = append(out, "", "Заодно:")
+		out = append(out, "", "While you are at it:")
 		for _, g := range b.Groups {
 			out = append(out, "  "+p.GroupIntro(g))
 			for _, t := range g.Tasks {
@@ -167,13 +167,13 @@ func (b Briefing) Text(p voice.Persona) string {
 	}
 
 	if len(b.Complaints) > 0 {
-		out = append(out, "", "Отдельно:")
+		out = append(out, "", "Separately:")
 		for _, c := range b.Complaints {
 			out = append(out, "  · "+p.Complaint(c.Flag, c.Task))
 		}
 	}
 
-	out = append(out, "", "Открыто: "+countsLine(b.Counts, cfg))
+	out = append(out, "", "Open: "+countsLine(b.Counts, cfg))
 	out = append(out, p.Signoff())
 	return strings.Join(out, "\n") + "\n"
 }
@@ -195,9 +195,9 @@ func appendBlock(out []string, heading string, tasks []task.Task, say func(task.
 // taskLine is the compact reference used inside a batch, where the duty has
 // already been introduced by the group and only needs identifying.
 func taskLine(t task.Task) string {
-	line := fmt.Sprintf("%s «%s» · тир %d", t.ID, t.Title, t.Tier)
+	line := fmt.Sprintf("%s «%s» · tier %d", t.ID, t.Title, t.Tier)
 	if t.Due != nil {
-		line += " · срок " + t.Due.Format(dateLayout)
+		line += " · due " + t.Due.Format(dateLayout)
 	}
 	return line
 }
@@ -208,7 +208,7 @@ func countsLine(counts map[int]int, cfg *config.Config) string {
 	for tier := task.MinTier; tier <= task.MaxTier; tier++ {
 		name := cfg.Tier(tier).Name
 		if name == "" {
-			name = fmt.Sprintf("тир %d", tier)
+			name = fmt.Sprintf("tier %d", tier)
 		}
 		parts = append(parts, fmt.Sprintf("%s — %d", name, counts[tier]))
 	}

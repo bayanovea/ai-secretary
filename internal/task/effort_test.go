@@ -15,31 +15,31 @@ func TestParseEffort(t *testing.T) {
 		want    float64
 		wantErr bool
 	}{
-		{name: "часы", in: "1ч", want: 1.0 / HoursPerDay},
-		{name: "рабочий день в часах", in: "8ч", want: 1},
-		{name: "много часов", in: "36ч", want: 4.5},
-		{name: "дни", in: "5д", want: 5},
-		{name: "один день", in: "1д", want: 1},
-		{name: "недели", in: "2н", want: 14},
-		{name: "дробные дни через точку", in: "1.5д", want: 1.5},
-		{name: "дробные дни через запятую", in: "1,5д", want: 1.5},
-		{name: "дробные часы", in: "0.5ч", want: 0.5 / HoursPerDay},
-		{name: "дробные недели", in: "0.5н", want: 3.5},
-		{name: "ноль часов", in: "0ч", want: 0},
-		{name: "ноль дней", in: "0д", want: 0},
-		{name: "пробелы по краям", in: "  3д  ", want: 3},
-		{name: "пробел перед единицей", in: "3 д", want: 3},
-		{name: "отрицательные часы", in: "-1ч", wantErr: true},
-		{name: "отрицательные дни", in: "-2д", wantErr: true},
-		{name: "без единицы", in: "5", wantErr: true},
-		{name: "чужая единица", in: "5h", wantErr: true},
-		{name: "мусор", in: "скоро", wantErr: true},
-		{name: "единица без числа", in: "д", wantErr: true},
-		{name: "пусто", in: "", wantErr: true},
-		{name: "только пробелы", in: "   ", wantErr: true},
-		{name: "две единицы", in: "1дд", wantErr: true},
-		{name: "бесконечность", in: "Infд", wantErr: true},
-		{name: "не число", in: "NaNд", wantErr: true},
+		{name: "hours", in: "1h", want: 1.0 / HoursPerDay},
+		{name: "working day in hours", in: "8h", want: 1},
+		{name: "many hours", in: "36h", want: 4.5},
+		{name: "days", in: "5d", want: 5},
+		{name: "one day", in: "1d", want: 1},
+		{name: "weeks", in: "2w", want: 14},
+		{name: "fractional days with a dot", in: "1.5d", want: 1.5},
+		{name: "fractional days with a comma", in: "1,5d", want: 1.5},
+		{name: "fractional hours", in: "0.5h", want: 0.5 / HoursPerDay},
+		{name: "fractional weeks", in: "0.5w", want: 3.5},
+		{name: "zero hours", in: "0h", want: 0},
+		{name: "zero days", in: "0d", want: 0},
+		{name: "surrounding whitespace", in: "  3d  ", want: 3},
+		{name: "space before the unit", in: "3 d", want: 3},
+		{name: "negative hours", in: "-1h", wantErr: true},
+		{name: "negative days", in: "-2d", wantErr: true},
+		{name: "no unit", in: "5", wantErr: true},
+		{name: "foreign unit", in: "5x", wantErr: true},
+		{name: "garbage", in: "soon", wantErr: true},
+		{name: "unit without a number", in: "d", wantErr: true},
+		{name: "empty", in: "", wantErr: true},
+		{name: "whitespace only", in: "   ", wantErr: true},
+		{name: "two units", in: "1dd", wantErr: true},
+		{name: "infinity", in: "Infd", wantErr: true},
+		{name: "not a number", in: "NaNd", wantErr: true},
 	}
 
 	for _, c := range cases {
@@ -48,18 +48,18 @@ func TestParseEffort(t *testing.T) {
 			got, err := ParseEffort(c.in)
 			if c.wantErr {
 				if err == nil {
-					t.Fatalf("ParseEffort(%q) = %v, ожидалась ошибка", c.in, got)
+					t.Fatalf("ParseEffort(%q) = %v, want an error", c.in, got)
 				}
 				if !errors.Is(err, ErrInvalidEffort) {
-					t.Fatalf("ParseEffort(%q) вернул ошибку %v, ожидалась ErrInvalidEffort", c.in, err)
+					t.Fatalf("ParseEffort(%q) returned an error %v, want ErrInvalidEffort", c.in, err)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("ParseEffort(%q) вернул ошибку: %v", c.in, err)
+				t.Fatalf("ParseEffort(%q) returned an error: %v", c.in, err)
 			}
 			if math.Abs(got.Days()-c.want) > epsilon {
-				t.Fatalf("ParseEffort(%q) = %v дней, ожидалось %v", c.in, got.Days(), c.want)
+				t.Fatalf("ParseEffort(%q) = %v days, want %v", c.in, got.Days(), c.want)
 			}
 		})
 	}
@@ -71,23 +71,23 @@ func TestEffortString(t *testing.T) {
 		in   Effort
 		want string
 	}{
-		{name: "ноль", in: 0, want: "0ч"},
-		{name: "час", in: 1.0 / HoursPerDay, want: "1ч"},
-		{name: "полдня в часах", in: 4.0 / HoursPerDay, want: "4ч"},
-		{name: "день", in: 1, want: "1д"},
-		{name: "пять дней", in: 5, want: "5д"},
-		{name: "неделя", in: 7, want: "1н"},
-		{name: "две недели", in: 14, want: "2н"},
-		{name: "девять дней", in: 9, want: "9д"},
-		{name: "полтора дня", in: 1.5, want: "1.5д"},
-		{name: "четыре с половиной дня", in: 4.5, want: "4.5д"},
+		{name: "zero", in: 0, want: "0h"},
+		{name: "hour", in: 1.0 / HoursPerDay, want: "1h"},
+		{name: "half a day in hours", in: 4.0 / HoursPerDay, want: "4h"},
+		{name: "day", in: 1, want: "1d"},
+		{name: "five days", in: 5, want: "5d"},
+		{name: "week", in: 7, want: "1w"},
+		{name: "two weeks", in: 14, want: "2w"},
+		{name: "nine days", in: 9, want: "9d"},
+		{name: "a day and a half", in: 1.5, want: "1.5d"},
+		{name: "four and a half days", in: 4.5, want: "4.5d"},
 	}
 
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			if got := c.in.String(); got != c.want {
-				t.Fatalf("Effort(%v).String() = %q, ожидалось %q", float64(c.in), got, c.want)
+				t.Fatalf("Effort(%v).String() = %q, want %q", float64(c.in), got, c.want)
 			}
 		})
 	}
@@ -97,25 +97,25 @@ func TestEffortString(t *testing.T) {
 // artifact says, writing it back out and reading it again yields the same
 // amount of work, even when the unit is normalised along the way.
 func TestEffortRoundTrip(t *testing.T) {
-	inputs := []string{"1ч", "4ч", "8ч", "36ч", "0.5ч", "1д", "5д", "9д", "1.5д", "1,5д", "1н", "2н", "0.5н", "0ч"}
+	inputs := []string{"1h", "4h", "8h", "36h", "0.5h", "1d", "5d", "9d", "1.5d", "1,5d", "1w", "2w", "0.5w", "0h"}
 
 	for _, in := range inputs {
 		in := in
 		t.Run(in, func(t *testing.T) {
 			first, err := ParseEffort(in)
 			if err != nil {
-				t.Fatalf("ParseEffort(%q) вернул ошибку: %v", in, err)
+				t.Fatalf("ParseEffort(%q) returned an error: %v", in, err)
 			}
 			rendered := first.String()
 			second, err := ParseEffort(rendered)
 			if err != nil {
-				t.Fatalf("ParseEffort(%q) после рендера %q вернул ошибку: %v", rendered, in, err)
+				t.Fatalf("ParseEffort(%q) after rendering %q returned an error: %v", rendered, in, err)
 			}
 			if math.Abs(first.Days()-second.Days()) > epsilon {
-				t.Fatalf("round-trip %q → %q: %v дней стало %v", in, rendered, first.Days(), second.Days())
+				t.Fatalf("round-trip %q → %q: %v days became %v", in, rendered, first.Days(), second.Days())
 			}
 			if again := second.String(); again != rendered {
-				t.Fatalf("round-trip %q нестабилен: %q затем %q", in, rendered, again)
+				t.Fatalf("round-trip %q unstable: %q then %q", in, rendered, again)
 			}
 		})
 	}
@@ -126,6 +126,6 @@ func TestEffortIsZero(t *testing.T) {
 		t.Fatal("Effort(0).IsZero() = false")
 	}
 	if Effort(1.0 / HoursPerDay).IsZero() {
-		t.Fatal("час работы посчитан нулевым объёмом")
+		t.Fatal("an hour of work came out as zero effort")
 	}
 }

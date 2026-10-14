@@ -17,7 +17,7 @@ func date(s string) time.Time {
 }
 
 // TestHumanDue pins the wording of the deadline column: it is the part of the
-// output a person actually reads, and «завтра» must not silently become a date.
+// output a person actually reads, and «tomorrow» must not silently become a date.
 func TestHumanDue(t *testing.T) {
 	now := date("2026-08-28")
 	cases := []struct {
@@ -25,12 +25,12 @@ func TestHumanDue(t *testing.T) {
 		want string
 	}{
 		{"", "—"},
-		{"2026-08-28", "сегодня"},
-		{"2026-08-29", "завтра"},
-		{"2026-08-27", "вчера"},
-		{"2026-08-31", "пн 31 авг"},
-		{"2026-09-15", "15 сен"},
-		{"2027-01-09", "9 янв 2027"},
+		{"2026-08-28", "today"},
+		{"2026-08-29", "tomorrow"},
+		{"2026-08-27", "yesterday"},
+		{"2026-08-31", "Mon 31 Aug"},
+		{"2026-09-15", "15 Sep"},
+		{"2027-01-09", "9 Jan 2027"},
 	}
 	for _, tc := range cases {
 		var due *time.Time
@@ -39,7 +39,7 @@ func TestHumanDue(t *testing.T) {
 			due = &d
 		}
 		if got := humanDue(due, now); got != tc.want {
-			t.Errorf("humanDue(%q) = %q, ожидалось %q", tc.due, got, tc.want)
+			t.Errorf("humanDue(%q) = %q, want %q", tc.due, got, tc.want)
 		}
 	}
 }
@@ -57,19 +57,19 @@ func TestColorEnabled(t *testing.T) {
 			t.Fatalf("--color=%s: %v", tc.mode, err)
 		}
 		if got != tc.want {
-			t.Errorf("--color=%s в трубу: %v, ожидалось %v", tc.mode, got, tc.want)
+			t.Errorf("--color=%s into a pipe: %v, want %v", tc.mode, got, tc.want)
 		}
 	}
-	if _, err := colorEnabled("розовый", &bytes.Buffer{}); err == nil {
-		t.Error("неизвестный режим цвета принят")
+	if _, err := colorEnabled("pink", &bytes.Buffer{}); err == nil {
+		t.Error("unknown colour mode accepted")
 	}
 }
 
 func TestStatusGlyphAndTierMark(t *testing.T) {
 	if statusGlyph(task.StatusOverdue) == statusGlyph(task.StatusSoon) {
-		t.Error("просроченное и «скоро» помечены одинаково")
+		t.Error("overdue and «soon» are marked the same")
 	}
 	if tierMark(1) == tierMark(2) || tierMark(3) != "" {
-		t.Errorf("тиры неразличимы без цвета: %q %q %q", tierMark(1), tierMark(2), tierMark(3))
+		t.Errorf("tiers are indistinguishable without colour: %q %q %q", tierMark(1), tierMark(2), tierMark(3))
 	}
 }

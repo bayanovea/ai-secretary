@@ -18,7 +18,7 @@ import (
 )
 
 // DefaultPreamble opens an artifact this package creates from nothing.
-const DefaultPreamble = "# Обязанности"
+const DefaultPreamble = "# Duties"
 
 // idFormat is the shape of an assigned identifier. Wider numbers keep their own
 // width, so T-1000 follows T-999 without renumbering anything.
@@ -30,12 +30,12 @@ var idRe = regexp.MustCompile(`^T-(\d+)$`)
 // Mutation failures, one per rule, so the CLI can tell them apart and say
 // something useful.
 var (
-	ErrUnknownSection = errors.New("неизвестный раздел")
-	ErrUnknownID      = errors.New("нет такой задачи")
-	ErrDuplicateID    = errors.New("идентификатор уже занят")
-	ErrNotLater       = errors.New("новый срок не позже прежнего")
-	ErrAlreadyDone    = errors.New("задача уже выполнена")
-	ErrUnknownStep    = errors.New("нет такого подпункта")
+	ErrUnknownSection = errors.New("unknown section")
+	ErrUnknownID      = errors.New("no such task")
+	ErrDuplicateID    = errors.New("identifier already taken")
+	ErrNotLater       = errors.New("new deadline is not later than the old one")
+	ErrAlreadyDone    = errors.New("task already done")
+	ErrUnknownStep    = errors.New("no such step")
 )
 
 // Store is the artifact on disk: a path, and the configuration that says how to
@@ -71,7 +71,7 @@ func (s *Store) Load() (*Document, error) {
 		if os.IsNotExist(err) {
 			return &Document{Preamble: []string{DefaultPreamble}}, nil
 		}
-		return nil, fmt.Errorf("mdstore: открыть %s: %w", s.Path, err)
+		return nil, fmt.Errorf("mdstore: open %s: %w", s.Path, err)
 	}
 	defer f.Close()
 
@@ -95,28 +95,28 @@ func (s *Store) Save(doc *Document, now time.Time) error {
 
 	dir := filepath.Dir(s.Path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("mdstore: создать %s: %w", dir, err)
+		return fmt.Errorf("mdstore: create %s: %w", dir, err)
 	}
 
 	tmp, err := os.CreateTemp(dir, filepath.Base(s.Path)+".tmp*")
 	if err != nil {
-		return fmt.Errorf("mdstore: временный файл в %s: %w", dir, err)
+		return fmt.Errorf("mdstore: temporary file in %s: %w", dir, err)
 	}
 	name := tmp.Name()
 	defer os.Remove(name) // no-op once the rename has succeeded
 
 	if _, err := tmp.Write(buf.Bytes()); err != nil {
 		tmp.Close()
-		return fmt.Errorf("mdstore: запись %s: %w", name, err)
+		return fmt.Errorf("mdstore: write %s: %w", name, err)
 	}
 	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("mdstore: закрыть %s: %w", name, err)
+		return fmt.Errorf("mdstore: close %s: %w", name, err)
 	}
 	if err := os.Chmod(name, 0o644); err != nil {
-		return fmt.Errorf("mdstore: права %s: %w", name, err)
+		return fmt.Errorf("mdstore: permissions %s: %w", name, err)
 	}
 	if err := os.Rename(name, s.Path); err != nil {
-		return fmt.Errorf("mdstore: заменить %s: %w", s.Path, err)
+		return fmt.Errorf("mdstore: replace %s: %w", s.Path, err)
 	}
 	return nil
 }
@@ -139,7 +139,7 @@ func (d *Document) Add(t task.Task, cfg *config.Config) (string, error) {
 
 	trim(&t)
 	if !cfg.HasSection(t.Section) {
-		return "", fmt.Errorf("%w %q: допустимы %s", ErrUnknownSection, t.Section, strings.Join(cfg.Sections, ", "))
+		return "", fmt.Errorf("%w %q: allowed: %s", ErrUnknownSection, t.Section, strings.Join(cfg.Sections, ", "))
 	}
 
 	if t.ID == "" {
@@ -230,14 +230,14 @@ type StepFields struct {
 	ClearDue  bool
 }
 
-// SetStepFields changes the tier and срок of the n-th step, counting from one.
+// SetStepFields changes the tier and due date of the n-th step, counting from one.
 func (d *Document) SetStepFields(id string, n int, f StepFields) error {
 	t, err := d.openTask(id)
 	if err != nil {
 		return err
 	}
 	if n < 1 || n > len(t.Steps) {
-		return fmt.Errorf("%w: %s: подпункт %d", ErrUnknownStep, id, n)
+		return fmt.Errorf("%w: %s: step %d", ErrUnknownStep, id, n)
 	}
 	step := &t.Steps[n-1]
 	switch {
@@ -264,7 +264,7 @@ func (d *Document) SetStep(id string, n int, done bool) error {
 		return err
 	}
 	if n < 1 || n > len(t.Steps) {
-		return fmt.Errorf("%w: %s %d: всего подпунктов %d", ErrUnknownStep, id, n, len(t.Steps))
+		return fmt.Errorf("%w: %s %d: only %d steps", ErrUnknownStep, id, n, len(t.Steps))
 	}
 	t.Steps[n-1].Done = done
 	return nil
@@ -278,7 +278,7 @@ func (d *Document) DropStep(id string, n int) (task.Step, error) {
 		return task.Step{}, err
 	}
 	if n < 1 || n > len(t.Steps) {
-		return task.Step{}, fmt.Errorf("%w: %s %d: всего подпунктов %d", ErrUnknownStep, id, n, len(t.Steps))
+		return task.Step{}, fmt.Errorf("%w: %s %d: only %d steps", ErrUnknownStep, id, n, len(t.Steps))
 	}
 	step := t.Steps[n-1]
 	t.Steps = append(t.Steps[:n-1], t.Steps[n:]...)
@@ -298,10 +298,10 @@ func (d *Document) openTask(id string) (*task.Task, error) {
 	return t, nil
 }
 
-// Done moves the task into `## Сделано` and dates it.
+// Done moves the task into `## Done` and dates it.
 //
 // The completion date is normalised to a calendar day: the artifact records
-// dates, and «выполнено» at half past eleven is still that day's work.
+// dates, and «done» at half past eleven is still that day's work.
 func (d *Document) Done(id string, now time.Time) error {
 	si, ti, found := d.find(id)
 	if !found {
@@ -330,7 +330,7 @@ func (d *Document) Done(id string, now time.Time) error {
 //
 // Moving a deadline earlier is not a deferral and is refused: it is far more
 // likely to be a typo than a decision, and the counter Alfred reads to say
-// «откладывается уже трижды» only means something if it counts one direction.
+// «deferred three times already» only means something if it counts one direction.
 //
 // A task that had no deadline at all is a different act — a first date is being
 // set, not a promise broken — so the date is taken and the counter left alone.
@@ -357,8 +357,8 @@ func (d *Document) Defer(id string, newDue time.Time) error {
 	return nil
 }
 
-// Sort orders the tasks inside each section: тир asc → severity of status desc
-// → срок asc (absent last) → id asc.
+// Sort orders the tasks inside each section: tier asc → severity of status desc
+// → due asc (absent last) → id asc.
 //
 // Sections keep the order they appear in, so a user who moved one stays moved.
 // The final key is the identifier, which is unique, so the order is total: the
@@ -463,7 +463,7 @@ func (d *Document) sectionIndex(name string) int {
 	return -1
 }
 
-// addSection appends a section, keeping `## Сделано` last: history belongs at
+// addSection appends a section, keeping `## Done` last: history belongs at
 // the bottom of the page, under the duties that are still open.
 func (d *Document) addSection(name string) int {
 	if done := d.sectionIndex(DoneSection); done >= 0 && name != DoneSection {

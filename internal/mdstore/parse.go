@@ -4,7 +4,7 @@
 // The artifact is meant to be hand-edited, so parsing is forgiving about
 // spacing and about keys it does not know, and strict about the few things a
 // wrong answer would be worse than an error: tiers, dates and efforts. Lines
-// the renderer generates — the version marker, the «Обновлено» line and the
+// the renderer generates — the version marker, the «Updated» line and the
 // status glyph hints — are dropped here and regenerated on write, which is what
 // makes parse → render → parse a fixed point.
 package mdstore
@@ -25,28 +25,28 @@ import (
 const DateLayout = "2006-01-02"
 
 // DoneSection is the section completed tasks are moved into.
-const DoneSection = "Сделано"
+const DoneSection = "Done"
 
 // Marker identifies a file this program wrote. It is regenerated on render.
 const Marker = "<!-- secretary:v1 -->"
 
-// updatedPrefix starts the generated «Обновлено» line of the preamble.
-const updatedPrefix = "> Обновлено:"
+// updatedPrefix starts the generated «Updated» line of the preamble.
+const updatedPrefix = "> Updated:"
 
 // Field keys of the ` · `-separated line under a task header.
 const (
-	keyTier      = "тир"
-	keyFrom      = "от"
-	keyDue       = "срок"
-	keyEffort    = "объём"
-	keyContext   = "контекст"
-	keyDeferrals = "переносов"
-	keyCreated   = "создано"
-	keyCompleted = "выполнено"
+	keyTier      = "tier"
+	keyFrom      = "from"
+	keyDue       = "due"
+	keyEffort    = "effort"
+	keyContext   = "context"
+	keyDeferrals = "deferrals"
+	keyCreated   = "created"
+	keyCompleted = "done"
 )
 
-// labelsPrefix starts the `метки:` line.
-const labelsPrefix = "метки:"
+// labelsPrefix starts the `labels:` line.
+const labelsPrefix = "labels:"
 
 // glyphs begin the generated hint lines. They carry no information that is not
 // recomputable, so the parser throws them away rather than trying to read them.
@@ -63,7 +63,7 @@ var (
 	stepRe = regexp.MustCompile(`^-\s*\[([ xX])\]\s*(.*)$`)
 )
 
-// Section is one `## Заголовок` block with the tasks filed under it, in the
+// Section is one `## Heading` block with the tasks filed under it, in the
 // order they appear in the file.
 type Section struct {
 	Name  string
@@ -72,9 +72,9 @@ type Section struct {
 
 // Document is a parsed artifact.
 //
-// Preamble holds the free text before the first section — the `# Обязанности`
+// Preamble holds the free text before the first section — the `# Duties`
 // heading and anything the user added — with the generated marker and
-// «Обновлено» lines removed and surrounding blank lines trimmed, so that it
+// «Updated» lines removed and surrounding blank lines trimmed, so that it
 // survives a round-trip unchanged.
 type Document struct {
 	Preamble []string
@@ -87,7 +87,7 @@ type Error struct {
 	Msg  string
 }
 
-func (e *Error) Error() string { return fmt.Sprintf("строка %d: %s", e.Line, e.Msg) }
+func (e *Error) Error() string { return fmt.Sprintf("line %d: %s", e.Line, e.Msg) }
 
 func errAt(line int, format string, args ...interface{}) error {
 	return &Error{Line: line, Msg: fmt.Sprintf(format, args...)}
@@ -132,7 +132,7 @@ func Parse(r io.Reader) (*Document, error) {
 
 		if m := taskHeaderRe.FindStringSubmatch(line); m != nil {
 			if secIdx < 0 {
-				return nil, errAt(lineNo, "задача %q вне раздела", m[2])
+				return nil, errAt(lineNo, "task %q outside any section", m[2])
 			}
 			t := task.Task{
 				ID:      strings.TrimSpace(m[2]),
@@ -141,7 +141,7 @@ func Parse(r io.Reader) (*Document, error) {
 				Done:    m[1] != " ",
 			}
 			if first, dup := seen[t.ID]; dup {
-				return nil, errAt(lineNo, "повторный идентификатор %s, уже встречался в строке %d", t.ID, first)
+				return nil, errAt(lineNo, "duplicate identifier %s, already seen on line %d", t.ID, first)
 			}
 			seen[t.ID] = lineNo
 			if rest := strings.TrimSpace(m[4]); rest != "" {
@@ -163,7 +163,7 @@ func Parse(r io.Reader) (*Document, error) {
 			continue
 		}
 		if taskIdx < 0 {
-			return nil, errAt(lineNo, "строка %q вне задачи", line)
+			return nil, errAt(lineNo, "line %q outside any task", line)
 		}
 
 		cur := &doc.Sections[secIdx].Tasks[taskIdx]
@@ -176,7 +176,7 @@ func Parse(r io.Reader) (*Document, error) {
 			if m := stepRe.FindStringSubmatch(line); m != nil {
 				step, err := parseStep(strings.TrimSpace(m[2]), lineNo)
 				if err != nil {
-					return nil, fmt.Errorf("%w (задача %s)", err, cur.ID)
+					return nil, fmt.Errorf("%w (task %s)", err, cur.ID)
 				}
 				step.Done = m[1] != " "
 				cur.Steps = append(cur.Steps, step)
@@ -188,7 +188,7 @@ func Parse(r io.Reader) (*Document, error) {
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return nil, fmt.Errorf("mdstore: чтение: %w", err)
+		return nil, fmt.Errorf("mdstore: read: %w", err)
 	}
 
 	doc.Preamble = trimBlank(doc.Preamble)
@@ -201,7 +201,7 @@ func Parse(r io.Reader) (*Document, error) {
 	return doc, nil
 }
 
-// applyFields reads one ` · `-separated line of `ключ:значение` pairs into t.
+// applyFields reads one ` · `-separated line of `key:value` pairs into t.
 // Unknown keys are ignored — a future version of the format, or a note the user
 // invented, must not make the file unreadable — but a known key with a value
 // that cannot be read is an error.
@@ -213,7 +213,7 @@ func applyFields(t *task.Task, line string, lineNo int) error {
 		}
 		key, value, ok := strings.Cut(field, ":")
 		if !ok {
-			return errAt(lineNo, "поле %q без значения: ожидается ключ:значение", field)
+			return errAt(lineNo, "field %q has no value: expected key:value", field)
 		}
 		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
 
@@ -221,10 +221,10 @@ func applyFields(t *task.Task, line string, lineNo int) error {
 		case keyTier:
 			tier, err := strconv.Atoi(value)
 			if err != nil {
-				return errAt(lineNo, "тир %q: не число", value)
+				return errAt(lineNo, "tier %q: not a number", value)
 			}
 			if tier < task.MinTier || tier > task.MaxTier {
-				return errAt(lineNo, "тир %d: ожидается 1..3", tier)
+				return errAt(lineNo, "tier %d: expected 1..3", tier)
 			}
 			t.Tier = tier
 		case keyFrom:
@@ -246,10 +246,10 @@ func applyFields(t *task.Task, line string, lineNo int) error {
 		case keyDeferrals:
 			n, err := strconv.Atoi(value)
 			if err != nil {
-				return errAt(lineNo, "переносов %q: не число", value)
+				return errAt(lineNo, "deferrals %q: not a number", value)
 			}
 			if n < 0 {
-				return errAt(lineNo, "переносов %d: отрицательное", n)
+				return errAt(lineNo, "deferrals %d: negative", n)
 			}
 			t.Deferrals = n
 		case keyCreated:
@@ -271,11 +271,11 @@ func applyFields(t *task.Task, line string, lineNo int) error {
 
 // check validates a task once its whole block has been read. Completed tasks
 // are held to a lower standard: they are history, and the artifact keeps them
-// as a one-line record without тир or от.
+// as a one-line record without a tier or a from.
 func check(t task.Task, line int) error {
 	if t.Done {
 		if t.ID == "" || t.Title == "" {
-			return errAt(line, "выполненная задача без идентификатора или названия")
+			return errAt(line, "completed task without an identifier or a title")
 		}
 		return nil
 	}
@@ -288,12 +288,12 @@ func check(t task.Task, line int) error {
 func parseDate(value, key string, lineNo int) (time.Time, error) {
 	d, err := time.Parse(DateLayout, value)
 	if err != nil {
-		return time.Time{}, errAt(lineNo, "%s %q: ожидается ГГГГ-ММ-ДД", key, value)
+		return time.Time{}, errAt(lineNo, "%s %q: expected YYYY-MM-DD", key, value)
 	}
 	return d, nil
 }
 
-// splitLabels reads the comma-separated `метки:` line, dropping empties so that
+// splitLabels reads the comma-separated `labels:` line, dropping empties so that
 // a trailing comma is harmless.
 func splitLabels(s string) []string {
 	var labels []string
@@ -330,7 +330,7 @@ func trimBlank(lines []string) []string {
 	return lines[start:end]
 }
 
-// parseStep reads the text of a checkbox and the optional `· тир:1 · срок:…`
+// parseStep reads the text of a checkbox and the optional `· tier:1 · due:…`
 // pairs a step may carry. Only *trailing* known keys are taken as fields, and
 // scanning stops at the first segment that is not one: a step whose text itself
 // contains a `·` keeps it, which is the same forgiveness the task line gets for
@@ -350,19 +350,19 @@ func parseStep(text string, lineNo int) (task.Step, error) {
 		switch key {
 		case keyTier:
 			if step.Tier != 0 {
-				return step, errAt(lineNo, "подпункт: тир указан дважды")
+				return step, errAt(lineNo, "step: tier given twice")
 			}
 			tier, err := strconv.Atoi(value)
 			if err != nil {
-				return step, errAt(lineNo, "подпункт: тир %q: не число", value)
+				return step, errAt(lineNo, "step: tier %q: not a number", value)
 			}
 			if tier < task.MinTier || tier > task.MaxTier {
-				return step, errAt(lineNo, "подпункт: тир %d: ожидается 1..3", tier)
+				return step, errAt(lineNo, "step: tier %d: expected 1..3", tier)
 			}
 			step.Tier = tier
 		case keyDue:
 			if step.Due != nil {
-				return step, errAt(lineNo, "подпункт: срок указан дважды")
+				return step, errAt(lineNo, "step: due given twice")
 			}
 			due, err := parseDate(value, keyDue, lineNo)
 			if err != nil {
@@ -380,7 +380,7 @@ func parseStep(text string, lineNo int) (task.Step, error) {
 
 func finishStep(step task.Step, text string, lineNo int) (task.Step, error) {
 	if text == "" {
-		return step, errAt(lineNo, "подпункт без текста")
+		return step, errAt(lineNo, "step without text")
 	}
 	step.Text = text
 	return step, nil
@@ -394,7 +394,7 @@ func cutLast(s, sep string) (before, after string, found bool) {
 	return s, "", false
 }
 
-// ParseStep turns one hand-written step — «позвонить · срок:2026-09-01» — into
+// ParseStep turns one hand-written step — «call them · due:2026-09-01» — into
 // a Step. It is the same reader the artifact uses, so `--step` on the command
 // line and a line typed into the file mean exactly the same thing.
 func ParseStep(text string) (task.Step, error) {

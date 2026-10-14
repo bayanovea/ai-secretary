@@ -1,7 +1,7 @@
 // Package schedule answers the two questions the artifact cannot store: when a
 // duty must be started, and how it stands today.
 //
-// Both are pure functions of (срок, объём, тир) and a `now` handed in by the
+// Both are pure functions of (due, effort, tier) and a `now` handed in by the
 // caller. Nothing here reads a clock, so a run over the same artifact on the
 // same day always produces the same answer, and a test can put the day wherever
 // it likes.
@@ -41,18 +41,18 @@ const (
 func (f Flag) String() string {
 	switch f {
 	case FlagIncomplete:
-		return "неполные данные"
+		return "incomplete data"
 	case FlagPostponed:
-		return "откладывается"
+		return "deferred"
 	case FlagForgotten:
-		return "забыто"
+		return "stale"
 	default:
-		return "неизвестно"
+		return "unknown"
 	}
 }
 
 // LatestStart is the last day the task can be started and still be finished on
-// time: `срок − объём − buffer(тир)`.
+// time: `due − effort − buffer(tier)`.
 //
 // It is nil when either the deadline or the effort is missing — with one of the
 // two unknown the date would be a guess, and a guessed start date is worse than
@@ -78,17 +78,17 @@ func LatestStart(t task.Task, cfg *config.Config) *time.Time {
 
 // Status places the task relative to today:
 //
-//	просрочено     срок прошёл
-//	пора начинать  день последнего старта наступил
-//	скоро          он наступит в ближайшие soon_window_days
-//	спокойно       иначе
-//	без срока      срока нет вовсе
+//	overdue        the deadline has passed
+//	start now      the latest start day has arrived
+//	soon           it arrives within soon_window_days
+//	on track       otherwise
+//	no deadline    there is no deadline at all
 //
 // Without an effort estimate there is no latest start date, so the deadline
-// itself stands in for it: a task due tomorrow is «пора начинать» even when
+// itself stands in for it: a task due tomorrow is «start now» even when
 // nobody said how long it takes.
 //
-// A completed task is спокойно whatever its dates say — it has stopped being a
+// A completed task is on track whatever its dates say — it has stopped being a
 // duty, and reporting it as overdue would be Alfred nagging about the past.
 func Status(t task.Task, now time.Time, cfg *config.Config) task.Status {
 	if cfg == nil {

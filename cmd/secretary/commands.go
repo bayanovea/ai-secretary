@@ -71,27 +71,27 @@ type addCmd struct {
 }
 
 func (c *addCmd) name() string    { return "add" }
-func (c *addCmd) summary() string { return "записать новую обязанность" }
+func (c *addCmd) summary() string { return "record a new duty" }
 
 func (c *addCmd) register(fs *flag.FlagSet) {
-	fs.StringVar(&c.title, "title", "", "название (обязательно)")
-	fs.IntVar(&c.tier, "tier", 2, "тир: 1 критично, 2 важно, 3 фоновое")
-	fs.StringVar(&c.from, "from", task.SelfAssigned, "от кого задача")
-	fs.StringVar(&c.due, "due", "", "срок, ГГГГ-ММ-ДД")
-	fs.StringVar(&c.effort, "effort", "", "объём: Nч, Nд или Nн")
-	fs.StringVar(&c.section, "section", "", "раздел (по умолчанию первый из конфигурации)")
-	fs.StringVar(&c.labels, "labels", "", "метки через запятую")
-	fs.StringVar(&c.context, "context", "", "контекст, например @город")
-	fs.Var(&c.notes, "note", "заметка (можно повторять)")
-	fs.Var(&c.steps, "step", "подпункт-чекбокс (можно повторять)")
+	fs.StringVar(&c.title, "title", "", "title (required)")
+	fs.IntVar(&c.tier, "tier", 2, "tier: 1 critical, 2 important, 3 background")
+	fs.StringVar(&c.from, "from", task.SelfAssigned, "who the duty is from")
+	fs.StringVar(&c.due, "due", "", "deadline, YYYY-MM-DD")
+	fs.StringVar(&c.effort, "effort", "", "effort: Nh, Nd or Nw")
+	fs.StringVar(&c.section, "section", "", "section (default: the first configured one)")
+	fs.StringVar(&c.labels, "labels", "", "comma-separated labels")
+	fs.StringVar(&c.context, "context", "", "context, for example @town")
+	fs.Var(&c.notes, "note", "note (repeatable)")
+	fs.Var(&c.steps, "step", "checkbox step (repeatable)")
 }
 
 func (c *addCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("%w: add не принимает позиционных аргументов (%s)", errUsage, strings.Join(args, " "))
+		return fmt.Errorf("%w: add takes no positional arguments (%s)", errUsage, strings.Join(args, " "))
 	}
 	if strings.TrimSpace(c.title) == "" {
-		return fmt.Errorf("%w: add требует --title", errUsage)
+		return fmt.Errorf("%w: add requires --title", errUsage)
 	}
 
 	parsedSteps, err := steps(c.steps)
@@ -163,16 +163,16 @@ type briefCmd struct {
 
 func (c *briefCmd) name() string { return "brief" }
 func (c *briefCmd) summary() string {
-	return "сводка: просрочено, начинать сегодня, скоро"
+	return "briefing: overdue, start today, soon"
 }
 
 func (c *briefCmd) register(fs *flag.FlagSet) {
-	fs.BoolVar(&c.json, "json", false, "выдать сводку в JSON")
+	fs.BoolVar(&c.json, "json", false, "print the briefing as JSON")
 }
 
 func (c *briefCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("%w: brief не принимает позиционных аргументов", errUsage)
+		return fmt.Errorf("%w: brief takes no positional arguments", errUsage)
 	}
 
 	doc, err := a.load()
@@ -211,20 +211,20 @@ type listCmd struct {
 
 func (c *listCmd) name() string { return "list" }
 func (c *listCmd) summary() string {
-	return "показать открытые обязанности с фильтрами"
+	return "show open duties, with filters"
 }
 
 func (c *listCmd) register(fs *flag.FlagSet) {
-	fs.IntVar(&c.tier, "tier", 0, "только этот тир")
-	fs.StringVar(&c.section, "section", "", "только этот раздел")
-	fs.StringVar(&c.label, "label", "", "только с этой меткой")
-	fs.StringVar(&c.context, "context", "", "только с этим контекстом")
-	fs.StringVar(&c.order, "sort", sortByDate, "порядок внутри раздела: date — по срокам, tier — как в артефакте")
-	fs.StringVar(&c.color, "color", "auto", "цвет: auto, always или never")
+	fs.IntVar(&c.tier, "tier", 0, "only this tier")
+	fs.StringVar(&c.section, "section", "", "only this section")
+	fs.StringVar(&c.label, "label", "", "only with this label")
+	fs.StringVar(&c.context, "context", "", "only with this context")
+	fs.StringVar(&c.order, "sort", sortByDate, "order within a section: date — by deadline, tier — as in the artifact")
+	fs.StringVar(&c.color, "color", "auto", "colour: auto, always or never")
 }
 
 // Sort orders accepted by `--sort`. The artifact keeps duties in tier order,
-// which is right for a file read top to bottom; a person asking «что у меня»
+// which is right for a file read top to bottom; a person asking «what is on my plate»
 // reads by date, so that is the default here.
 const (
 	sortByDate = "date"
@@ -237,10 +237,10 @@ const titleWidthMax = 46
 
 func (c *listCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("%w: list не принимает позиционных аргументов", errUsage)
+		return fmt.Errorf("%w: list takes no positional arguments", errUsage)
 	}
 	if c.order != sortByDate && c.order != sortByTier {
-		return fmt.Errorf("%w: --sort %q: ожидается date или tier", errUsage, c.order)
+		return fmt.Errorf("%w: --sort %q: expected date or tier", errUsage, c.order)
 	}
 	color, err := colorEnabled(c.color, a.out)
 	if err != nil {
@@ -280,7 +280,7 @@ func (c *listCmd) run(a *app, args []string) error {
 	}
 
 	if len(groups) == 0 {
-		a.printf("Ничего не найдено, сэр.\n")
+		a.printf("Nothing found, sir.\n")
 		return nil
 	}
 	if titleWidth > titleWidthMax {
@@ -353,11 +353,11 @@ func listLine(t task.Task, a *app, pal palette, titleWidth int) string {
 	}
 
 	var tail []string
-	if t.From != "" && t.From != "себя" {
-		tail = append(tail, "от "+t.From)
+	if t.From != "" && t.From != task.SelfAssigned {
+		tail = append(tail, "from "+t.From)
 	}
 	if p := t.Progress(); p != "" {
-		tail = append(tail, "подпункты "+p)
+		tail = append(tail, "steps "+p)
 	}
 	if len(t.Labels) > 0 {
 		tail = append(tail, strings.Join(t.Labels, ", "))
@@ -395,16 +395,16 @@ type stepCmd struct {
 }
 
 func (c *stepCmd) name() string    { return "step" }
-func (c *stepCmd) summary() string { return "подпункты внутри обязанности" }
+func (c *stepCmd) summary() string { return "checkbox steps inside a duty" }
 
 func (c *stepCmd) register(fs *flag.FlagSet) {
-	fs.Var(&c.add, "add", "добавить подпункт (можно повторять)")
-	fs.IntVar(&c.check, "check", 0, "отметить N-й подпункт выполненным")
-	fs.IntVar(&c.uncheck, "uncheck", 0, "снять отметку с N-го подпункта")
-	fs.IntVar(&c.drop, "drop", 0, "удалить N-й подпункт")
-	fs.IntVar(&c.set, "set", 0, "править N-й подпункт: --tier, --due")
-	fs.StringVar(&c.tier, "tier", "", "тир подпункта при --set: 1..3 или «-», чтобы снять")
-	fs.StringVar(&c.due, "due", "", "срок подпункта при --set: ГГГГ-ММ-ДД или «-», чтобы снять")
+	fs.Var(&c.add, "add", "add a step (repeatable)")
+	fs.IntVar(&c.check, "check", 0, "check step N")
+	fs.IntVar(&c.uncheck, "uncheck", 0, "uncheck step N")
+	fs.IntVar(&c.drop, "drop", 0, "drop step N")
+	fs.IntVar(&c.set, "set", 0, "edit step N: --tier, --due")
+	fs.StringVar(&c.tier, "tier", "", "step tier with --set: 1..3, or «-» to clear")
+	fs.StringVar(&c.due, "due", "", "step deadline with --set: YYYY-MM-DD, or «-» to clear")
 }
 
 func (c *stepCmd) run(a *app, args []string) error {
@@ -425,7 +425,7 @@ func (c *stepCmd) run(a *app, args []string) error {
 		if err := doc.AddStep(id, c.add...); err != nil {
 			return err
 		}
-		lines = append(lines, fmt.Sprintf("Добавлено подпунктов: %d.", len(c.add)))
+		lines = append(lines, fmt.Sprintf("Steps added: %d.", len(c.add)))
 	}
 	if c.set != 0 {
 		fields, err := c.stepFields()
@@ -436,13 +436,13 @@ func (c *stepCmd) run(a *app, args []string) error {
 			return err
 		}
 		t, _ := doc.Find(id)
-		lines = append(lines, fmt.Sprintf("Изменён подпункт: %d. %s", c.set, stepTail(t.Steps[c.set-1])))
+		lines = append(lines, fmt.Sprintf("Step changed: %d. %s", c.set, stepTail(t.Steps[c.set-1])))
 	}
 	for _, m := range []struct {
 		n    int
 		done bool
 		verb string
-	}{{c.check, true, "Выполнено"}, {c.uncheck, false, "Снята отметка"}} {
+	}{{c.check, true, "Checked"}, {c.uncheck, false, "Unchecked"}} {
 		if m.n == 0 {
 			continue
 		}
@@ -457,7 +457,7 @@ func (c *stepCmd) run(a *app, args []string) error {
 		if err != nil {
 			return err
 		}
-		lines = append(lines, fmt.Sprintf("Удалён подпункт: %s", step.Text))
+		lines = append(lines, fmt.Sprintf("Step dropped: %s", step.Text))
 	}
 
 	if len(lines) > 0 {
@@ -480,7 +480,7 @@ func (c *stepCmd) run(a *app, args []string) error {
 	}
 	a.printf("\n")
 	if len(t.Steps) == 0 {
-		a.printf("Подпунктов нет, сэр.\n")
+		a.printf("No steps, sir.\n")
 		return nil
 	}
 	for i, step := range t.Steps {
@@ -491,7 +491,7 @@ func (c *stepCmd) run(a *app, args []string) error {
 		a.printf("  %d. [%s] %s\n", i+1, box, stepTail(step))
 	}
 	if t.StepsLeft() == 0 && !t.Done {
-		a.printf("Все подпункты закрыты — можно отмечать: secretary done %s\n", t.ID)
+		a.printf("Every step is closed — ready to mark done: secretary done %s\n", t.ID)
 	}
 	return nil
 }
@@ -501,7 +501,7 @@ func (c *stepCmd) run(a *app, args []string) error {
 func (c *stepCmd) stepFields() (mdstore.StepFields, error) {
 	var f mdstore.StepFields
 	if c.tier == "" && c.due == "" {
-		return f, fmt.Errorf("%w: step --set требует --tier или --due", errUsage)
+		return f, fmt.Errorf("%w: step --set requires --tier or --due", errUsage)
 	}
 	switch {
 	case c.tier == "-":
@@ -509,7 +509,7 @@ func (c *stepCmd) stepFields() (mdstore.StepFields, error) {
 	case c.tier != "":
 		tier, err := strconv.Atoi(c.tier)
 		if err != nil || tier < task.MinTier || tier > task.MaxTier {
-			return f, fmt.Errorf("%w: --tier %q: ожидается 1..3 или «-»", errUsage, c.tier)
+			return f, fmt.Errorf("%w: --tier %q: expected 1..3 or «-»", errUsage, c.tier)
 		}
 		f.Tier = tier
 	}
@@ -531,16 +531,16 @@ func (c *stepCmd) stepFields() (mdstore.StepFields, error) {
 func stepTail(s task.Step) string {
 	out := s.Text
 	if s.Tier != 0 {
-		out += " · тир " + strconv.Itoa(s.Tier)
+		out += " · tier " + strconv.Itoa(s.Tier)
 	}
 	if s.Due != nil {
-		out += " · срок " + s.Due.Format(mdstore.DateLayout)
+		out += " · due " + s.Due.Format(mdstore.DateLayout)
 	}
 	return out
 }
 
 // steps turns the repeatable `--step` values into unchecked sub-items. The text
-// is read by the artifact's own parser, so `--step "позвонить · срок:2026-09-01"`
+// is read by the artifact's own parser, so `--step "call them · due:2026-09-01"`
 // on the command line means what the same line means in the file.
 func steps(texts []string) ([]task.Step, error) {
 	var out []task.Step
@@ -563,7 +563,7 @@ type doneCmd struct{}
 
 func (c *doneCmd) name() string { return "done" }
 func (c *doneCmd) summary() string {
-	return "отметить обязанность выполненной"
+	return "mark a duty done"
 }
 func (c *doneCmd) register(fs *flag.FlagSet) {}
 
@@ -585,9 +585,9 @@ func (c *doneCmd) run(a *app, args []string) error {
 		return err
 	}
 
-	a.printf("Отмечено выполненным: %s «%s».\n", id, t.Title)
+	a.printf("Marked done: %s «%s».\n", id, t.Title)
 	if left := t.StepsLeft(); left > 0 {
-		a.printf("Незакрытых подпунктов осталось: %d — они уходят в «Сделано» как есть.\n", left)
+		a.printf("Open steps left: %d — they go into «Done» as they are.\n", left)
 	}
 	return nil
 }
@@ -599,10 +599,10 @@ type deferCmd struct {
 }
 
 func (c *deferCmd) name() string    { return "defer" }
-func (c *deferCmd) summary() string { return "перенести срок" }
+func (c *deferCmd) summary() string { return "move a deadline" }
 
 func (c *deferCmd) register(fs *flag.FlagSet) {
-	fs.StringVar(&c.due, "due", "", "новый срок, ГГГГ-ММ-ДД (обязательно)")
+	fs.StringVar(&c.due, "due", "", "new deadline, YYYY-MM-DD (required)")
 }
 
 func (c *deferCmd) run(a *app, args []string) error {
@@ -611,7 +611,7 @@ func (c *deferCmd) run(a *app, args []string) error {
 		return err
 	}
 	if strings.TrimSpace(c.due) == "" {
-		return fmt.Errorf("%w: defer требует --due", errUsage)
+		return fmt.Errorf("%w: defer requires --due", errUsage)
 	}
 	due, err := parseDate(c.due, "--due")
 	if err != nil {
@@ -630,7 +630,7 @@ func (c *deferCmd) run(a *app, args []string) error {
 		return err
 	}
 
-	a.printf("Срок перенесён: %s «%s» → %s (переносов: %d).\n",
+	a.printf("Deadline moved: %s «%s» → %s (deferrals: %d).\n",
 		id, t.Title, due.Format(mdstore.DateLayout), t.Deferrals)
 	return nil
 }
@@ -641,13 +641,13 @@ type fmtCmd struct{}
 
 func (c *fmtCmd) name() string { return "fmt" }
 func (c *fmtCmd) summary() string {
-	return "перечитать, пересчитать подсказки и переписать артефакт"
+	return "re-read, recompute the hints and rewrite the artifact"
 }
 func (c *fmtCmd) register(fs *flag.FlagSet) {}
 
 func (c *fmtCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("%w: fmt не принимает позиционных аргументов", errUsage)
+		return fmt.Errorf("%w: fmt takes no positional arguments", errUsage)
 	}
 
 	doc, err := a.load()
@@ -658,7 +658,7 @@ func (c *fmtCmd) run(a *app, args []string) error {
 		return err
 	}
 
-	a.printf("Приведено в порядок: %s\n", a.store.Path)
+	a.printf("Tidied up: %s\n", a.store.Path)
 	return nil
 }
 
@@ -668,7 +668,7 @@ type checkCmd struct{}
 
 func (c *checkCmd) name() string { return "check" }
 func (c *checkCmd) summary() string {
-	return "проверить, что артефакт читается"
+	return "check that the artifact parses"
 }
 func (c *checkCmd) register(fs *flag.FlagSet) {}
 
@@ -679,7 +679,7 @@ func (c *checkCmd) register(fs *flag.FlagSet) {}
 // task would make the command useless in a pre-commit hook.
 func (c *checkCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("%w: check не принимает позиционных аргументов", errUsage)
+		return fmt.Errorf("%w: check takes no positional arguments", errUsage)
 	}
 
 	doc, err := a.load()
@@ -705,12 +705,12 @@ func (c *checkCmd) run(a *app, args []string) error {
 		}
 	}
 
-	a.printf("Артефакт читается: %s · открытых обязанностей: %d.\n", a.store.Path, open)
+	a.printf("Artifact parses: %s · open duties: %d.\n", a.store.Path, open)
 	if len(unknown) > 0 {
-		a.printf("Разделы вне конфигурации: %s\n", strings.Join(unknown, ", "))
+		a.printf("Sections outside the configuration: %s\n", strings.Join(unknown, ", "))
 	}
 	for _, line := range incomplete {
-		a.printf("Неполные данные: %s — тир 1 без срока или объёма.\n", line)
+		a.printf("Incomplete data: %s — tier 1 without a deadline or an effort.\n", line)
 	}
 	return nil
 }
@@ -718,24 +718,24 @@ func (c *checkCmd) run(a *app, args []string) error {
 // ── archive ───────────────────────────────────────────────────────────────────
 
 // archiveAfterDays is how long a completed duty stays in the main artifact. A
-// month is long enough to still answer «когда я это сделал?» and short enough
-// that `## Сделано` does not grow past the duties themselves.
+// month is long enough to still answer «when did I do that?» and short enough
+// that `## Done` does not grow past the duties themselves.
 const archiveAfterDays = 30
 
 type archiveCmd struct{}
 
 func (c *archiveCmd) name() string { return "archive" }
 func (c *archiveCmd) summary() string {
-	return "убрать давно выполненное в архивный файл"
+	return "move long-completed duties to the archive file"
 }
 func (c *archiveCmd) register(fs *flag.FlagSet) {}
 
 func (c *archiveCmd) run(a *app, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("%w: archive не принимает позиционных аргументов", errUsage)
+		return fmt.Errorf("%w: archive takes no positional arguments", errUsage)
 	}
 	if strings.TrimSpace(a.cfg.Archive) == "" {
-		return fmt.Errorf("%w: в конфигурации не задан archive", errUsage)
+		return fmt.Errorf("%w: archive is not set in the configuration", errUsage)
 	}
 
 	doc, err := a.load()
@@ -745,7 +745,7 @@ func (c *archiveCmd) run(a *app, args []string) error {
 
 	// A completed duty with no date is left alone: without one there is no way
 	// to tell whether it is old, and losing sight of it is worse than a long
-	// «Сделано».
+	// «Done».
 	cutoff := a.now.AddDate(0, 0, -archiveAfterDays)
 	var moved []task.Task
 	for i := range doc.Sections {
@@ -764,7 +764,7 @@ func (c *archiveCmd) run(a *app, args []string) error {
 	}
 
 	if len(moved) == 0 {
-		a.printf("В архив переносить нечего, сэр.\n")
+		a.printf("Nothing to archive, sir.\n")
 		return nil
 	}
 
@@ -774,7 +774,7 @@ func (c *archiveCmd) run(a *app, args []string) error {
 		return err
 	}
 	if len(adoc.Sections) == 0 {
-		adoc.Preamble = []string{"# Архив обязанностей"}
+		adoc.Preamble = []string{"# Archived duties"}
 	}
 	appendDone(adoc, moved)
 	// The archive is written first: a crash between the two writes then leaves
@@ -786,11 +786,11 @@ func (c *archiveCmd) run(a *app, args []string) error {
 		return err
 	}
 
-	a.printf("Перенесено в архив: %s → %s\n", plural(len(moved)), a.cfg.Archive)
+	a.printf("Archived: %s → %s\n", plural(len(moved)), a.cfg.Archive)
 	return nil
 }
 
-// appendDone files completed duties under `## Сделано`, creating the section if
+// appendDone files completed duties under `## Done`, creating the section if
 // the archive is new, and keeps them in completion order.
 func appendDone(doc *mdstore.Document, tasks []task.Task) {
 	idx := -1
@@ -816,16 +816,12 @@ func appendDone(doc *mdstore.Document, tasks []task.Task) {
 	})
 }
 
-// plural renders a count of duties with the right Russian ending.
+// plural renders a count of duties.
 func plural(n int) string {
-	word := "задач"
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		word = "задача"
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
-		word = "задачи"
+	if n == 1 {
+		return "1 task"
 	}
-	return fmt.Sprintf("%d %s", n, word)
+	return fmt.Sprintf("%d tasks", n)
 }
 
 // ── shared ────────────────────────────────────────────────────────────────────
@@ -834,11 +830,11 @@ func plural(n int) string {
 func oneID(name string, args []string) (string, error) {
 	switch len(args) {
 	case 0:
-		return "", fmt.Errorf("%w: %s требует идентификатор, например T-001", errUsage, name)
+		return "", fmt.Errorf("%w: %s requires an identifier, for example T-001", errUsage, name)
 	case 1:
 		return strings.TrimSpace(args[0]), nil
 	default:
-		return "", fmt.Errorf("%w: %s принимает ровно один идентификатор", errUsage, name)
+		return "", fmt.Errorf("%w: %s takes exactly one identifier", errUsage, name)
 	}
 }
 
@@ -846,7 +842,7 @@ func oneID(name string, args []string) (string, error) {
 func parseDate(value, flagName string) (time.Time, error) {
 	t, err := time.Parse(mdstore.DateLayout, strings.TrimSpace(value))
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%w: %s %q: ожидается ГГГГ-ММ-ДД", errUsage, flagName, value)
+		return time.Time{}, fmt.Errorf("%w: %s %q: expected YYYY-MM-DD", errUsage, flagName, value)
 	}
 	return day(t), nil
 }

@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	build := exec.Command("go", "build", "-o", binary, ".")
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "не собрался:", err)
+		fmt.Fprintln(os.Stderr, "build failed:", err)
 		os.RemoveAll(dir)
 		os.Exit(1)
 	}
@@ -47,12 +47,12 @@ type workspace struct {
 const configYAML = `persona: alfred
 artifact: duties.md
 archive: archive.md
-sections: [Работа, Личное, Дом, Здоровье, Отношения, Финансы]
-contexts: ["@город", "@дом", "@телефон", "@компьютер", "@работа"]
+sections: [Work, Personal, Home, Health, Relationships, Finance]
+contexts: ["@town", "@home", "@phone", "@computer", "@work"]
 tiers:
-  "1": {name: Критично, buffer_min_days: 2, buffer_ratio: 0.5}
-  "2": {name: Важно,    buffer_min_days: 1, buffer_ratio: 0.25}
-  "3": {name: Фоновое,  buffer_min_days: 0, buffer_ratio: 0}
+  "1": {name: Critical, buffer_min_days: 2, buffer_ratio: 0.5}
+  "2": {name: Important,    buffer_min_days: 1, buffer_ratio: 0.25}
+  "3": {name: Background,  buffer_min_days: 0, buffer_ratio: 0}
 soon_window_days: 3
 stale_days: 14
 `
@@ -85,7 +85,7 @@ func (w *workspace) run(t *testing.T, args ...string) (stdout, stderr string, co
 	case *exec.ExitError:
 		code = e.ExitCode()
 	default:
-		t.Fatalf("запуск %v: %v", args, err)
+		t.Fatalf("running %v: %v", args, err)
 	}
 	return out.String(), errOut.String(), code
 }
@@ -95,7 +95,7 @@ func (w *workspace) mustRun(t *testing.T, args ...string) string {
 	t.Helper()
 	stdout, stderr, code := w.run(t, args...)
 	if code != 0 {
-		t.Fatalf("%v: код %d, stderr: %s", args, code, stderr)
+		t.Fatalf("%v: exit code %d, stderr: %s", args, code, stderr)
 	}
 	return stdout
 }
@@ -104,7 +104,7 @@ func (w *workspace) read(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("чтение %s: %v", path, err)
+		t.Fatalf("reading %s: %v", path, err)
 	}
 	return string(data)
 }
@@ -119,16 +119,16 @@ func (w *workspace) write(t *testing.T, path, content string) {
 // seed fills the workspace with the four duties every listing test expects.
 func (w *workspace) seed(t *testing.T) {
 	t.Helper()
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Подготовить отчёт за Q3", "--tier=1",
-		"--from=Анна Петрова", "--due=2026-09-05", "--effort=5д", "--section=Работа",
-		"--context=@компьютер", "--labels=отчётность, финансы", "--note=нужны данные от финотдела")
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Забрать документы у нотариуса", "--tier=1",
-		"--from=Марина", "--due=2026-08-29", "--effort=1ч", "--section=Личное", "--context=@город",
-		"--labels=переезд, документы")
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Купить подарок Марине", "--tier=2",
-		"--due=2026-09-01", "--effort=2ч", "--section=Личное", "--context=@город", "--labels=отношения")
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Согласовать отпуск", "--tier=3",
-		"--section=Работа", "--context=@работа")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Prepare the Q3 report", "--tier=1",
+		"--from=Dana Whitfield", "--due=2026-09-05", "--effort=5d", "--section=Work",
+		"--context=@computer", "--labels=reporting, finance", "--note=needs the numbers from accounting")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Collect the documents from the notary", "--tier=1",
+		"--from=Helen", "--due=2026-08-29", "--effort=1h", "--section=Personal", "--context=@town",
+		"--labels=paperwork, documents")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Buy Helen a present", "--tier=2",
+		"--due=2026-09-01", "--effort=2h", "--section=Personal", "--context=@town", "--labels=relationships")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Get the vacation approved", "--tier=3",
+		"--section=Work", "--context=@work")
 }
 
 func TestAddAssignsSequentialIDs(t *testing.T) {
@@ -136,48 +136,48 @@ func TestAddAssignsSequentialIDs(t *testing.T) {
 
 	for i, want := range []string{"T-001", "T-002", "T-003"} {
 		out := w.mustRun(t, "--today=2026-08-27", "add",
-			fmt.Sprintf("--title=Задача %d", i+1), "--tier=2", "--section=Личное")
+			fmt.Sprintf("--title=Task %d", i+1), "--tier=2", "--section=Personal")
 		if got := strings.TrimSpace(out); got != want {
-			t.Fatalf("add №%d напечатал %q, ожидалось %q", i+1, got, want)
+			t.Fatalf("add #%d printed %q, want %q", i+1, got, want)
 		}
 	}
 
 	artifact := w.read(t, w.artifact)
-	for _, want := range []string{"`T-001`", "`T-003`", "## Личное", "создано:2026-08-27"} {
+	for _, want := range []string{"`T-001`", "`T-003`", "## Personal", "created:2026-08-27"} {
 		if !strings.Contains(artifact, want) {
-			t.Errorf("артефакт не содержит %q:\n%s", want, artifact)
+			t.Errorf("artifact lacks %q:\n%s", want, artifact)
 		}
 	}
 }
 
 func TestAddFieldsRoundTripIntoArtifact(t *testing.T) {
 	w := newWorkspace(t)
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Забрать документы", "--tier=1",
-		"--from=Марина", "--due=2026-08-29", "--effort=1ч", "--section=Личное",
-		"--context=@город", "--labels=переезд, документы", "--note=нотариус до 18:00",
-		"--note=взять паспорт")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Collect the documents", "--tier=1",
+		"--from=Helen", "--due=2026-08-29", "--effort=1h", "--section=Personal",
+		"--context=@town", "--labels=paperwork, documents", "--note=notary open until 18:00",
+		"--note=bring the passport")
 
 	artifact := w.read(t, w.artifact)
 	for _, want := range []string{
-		"тир:1", "от:Марина", "срок:2026-08-29", "объём:1ч", "контекст:@город",
-		"метки: переезд, документы", "> нотариус до 18:00", "> взять паспорт",
+		"tier:1", "from:Helen", "due:2026-08-29", "effort:1h", "context:@town",
+		"labels: paperwork, documents", "> notary open until 18:00", "> bring the passport",
 	} {
 		if !strings.Contains(artifact, want) {
-			t.Errorf("артефакт не содержит %q:\n%s", want, artifact)
+			t.Errorf("artifact lacks %q:\n%s", want, artifact)
 		}
 	}
 }
 
 func TestAddDefaultsSectionAndFrom(t *testing.T) {
 	w := newWorkspace(t)
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Без раздела", "--tier=3")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=No section", "--tier=3")
 
 	artifact := w.read(t, w.artifact)
-	if !strings.Contains(artifact, "## Работа") {
-		t.Errorf("раздел по умолчанию не первый из конфигурации:\n%s", artifact)
+	if !strings.Contains(artifact, "## Work") {
+		t.Errorf("default section is not the first configured one:\n%s", artifact)
 	}
-	if !strings.Contains(artifact, "от:себя") {
-		t.Errorf("от: по умолчанию не «себя»:\n%s", artifact)
+	if !strings.Contains(artifact, "from:self") {
+		t.Errorf("default from: is not «self»:\n%s", artifact)
 	}
 }
 
@@ -186,9 +186,9 @@ func TestBriefBuckets(t *testing.T) {
 	w.seed(t)
 
 	out := w.mustRun(t, "--today=2026-09-06", "brief")
-	for _, want := range []string{"Просрочено:", "Подготовить отчёт за Q3", "Забрать документы у нотариуса", "Открыто:"} {
+	for _, want := range []string{"Overdue:", "Prepare the Q3 report", "Collect the documents from the notary", "Open:"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("сводка не содержит %q:\n%s", want, out)
+			t.Errorf("briefing lacks %q:\n%s", want, out)
 		}
 	}
 }
@@ -197,11 +197,11 @@ func TestBriefAllClearOnEmptyArtifact(t *testing.T) {
 	w := newWorkspace(t)
 
 	out := w.mustRun(t, "--today=2026-08-27", "brief")
-	if strings.Contains(out, "Просрочено:") || strings.Contains(out, "Начинать сегодня:") {
-		t.Errorf("пустой артефакт не должен ничего требовать:\n%s", out)
+	if strings.Contains(out, "Overdue:") || strings.Contains(out, "Start today:") {
+		t.Errorf("an empty artifact must demand nothing:\n%s", out)
 	}
-	if !strings.Contains(out, "Открыто:") {
-		t.Errorf("сводка без итоговой строки:\n%s", out)
+	if !strings.Contains(out, "Open:") {
+		t.Errorf("briefing without the totals line:\n%s", out)
 	}
 }
 
@@ -213,18 +213,18 @@ func TestBriefJSON(t *testing.T) {
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
-		t.Fatalf("brief --json не разбирается: %v\n%s", err, out)
+		t.Fatalf("brief --json does not parse: %v\n%s", err, out)
 	}
 	for _, key := range []string{"date", "all_clear", "total", "counts", "overdue", "start_now", "soon", "groups", "complaints"} {
 		if _, ok := parsed[key]; !ok {
-			t.Errorf("в JSON нет ключа %q: %s", key, out)
+			t.Errorf("JSON lacks key %q: %s", key, out)
 		}
 	}
 	if parsed["date"] != "2026-09-06" {
-		t.Errorf("date = %v, ожидалось 2026-09-06", parsed["date"])
+		t.Errorf("date = %v, want 2026-09-06", parsed["date"])
 	}
 	if overdue, ok := parsed["overdue"].([]interface{}); !ok || len(overdue) == 0 {
-		t.Errorf("ожидались просроченные задачи: %s", out)
+		t.Errorf("want overdue tasks: %s", out)
 	}
 }
 
@@ -239,39 +239,39 @@ func TestListFilters(t *testing.T) {
 		notWant []string
 	}{
 		{
-			name:    "всё",
+			name:    "everything",
 			args:    []string{"list"},
 			want:    []string{"T-001", "T-002", "T-003", "T-004"},
 			notWant: nil,
 		},
 		{
-			name:    "по тиру",
+			name:    "by tier",
 			args:    []string{"list", "--tier=1"},
 			want:    []string{"T-001", "T-002"},
 			notWant: []string{"T-003", "T-004"},
 		},
 		{
-			name:    "по разделу",
-			args:    []string{"list", "--section=Личное"},
+			name:    "by section",
+			args:    []string{"list", "--section=Personal"},
 			want:    []string{"T-002", "T-003"},
 			notWant: []string{"T-001", "T-004"},
 		},
 		{
-			name:    "по метке",
-			args:    []string{"list", "--label=переезд"},
+			name:    "by label",
+			args:    []string{"list", "--label=paperwork"},
 			want:    []string{"T-002"},
 			notWant: []string{"T-001", "T-003", "T-004"},
 		},
 		{
-			name:    "по контексту",
-			args:    []string{"list", "--context=@город"},
+			name:    "by context",
+			args:    []string{"list", "--context=@town"},
 			want:    []string{"T-002", "T-003"},
 			notWant: []string{"T-001", "T-004"},
 		},
 		{
-			name:    "пустой результат",
-			args:    []string{"list", "--label=неттакой"},
-			want:    []string{"Ничего не найдено"},
+			name:    "empty result",
+			args:    []string{"list", "--label=nosuch"},
+			want:    []string{"Nothing found"},
 			notWant: []string{"T-001"},
 		},
 	}
@@ -281,12 +281,12 @@ func TestListFilters(t *testing.T) {
 			out := w.mustRun(t, append([]string{"--today=2026-08-27"}, tc.args...)...)
 			for _, want := range tc.want {
 				if !strings.Contains(out, want) {
-					t.Errorf("вывод не содержит %q:\n%s", want, out)
+					t.Errorf("output lacks %q:\n%s", want, out)
 				}
 			}
 			for _, notWant := range tc.notWant {
 				if strings.Contains(out, notWant) {
-					t.Errorf("вывод неожиданно содержит %q:\n%s", notWant, out)
+					t.Errorf("output unexpectedly contains %q:\n%s", notWant, out)
 				}
 			}
 		})
@@ -299,19 +299,19 @@ func TestDoneMovesTaskAndIsNotRepeatable(t *testing.T) {
 
 	out := w.mustRun(t, "--today=2026-08-28", "done", "T-002")
 	if !strings.Contains(out, "T-002") {
-		t.Errorf("done молчит про задачу: %q", out)
+		t.Errorf("done is silent about the task: %q", out)
 	}
 
 	artifact := w.read(t, w.artifact)
-	if !strings.Contains(artifact, "## Сделано") {
-		t.Errorf("нет раздела Сделано:\n%s", artifact)
+	if !strings.Contains(artifact, "## Done") {
+		t.Errorf("no Done section:\n%s", artifact)
 	}
-	if !strings.Contains(artifact, "- [x] `T-002`") || !strings.Contains(artifact, "выполнено:2026-08-28") {
-		t.Errorf("задача не отмечена выполненной:\n%s", artifact)
+	if !strings.Contains(artifact, "- [x] `T-002`") || !strings.Contains(artifact, "done:2026-08-28") {
+		t.Errorf("task not marked done:\n%s", artifact)
 	}
 
 	if _, _, code := w.run(t, "--today=2026-08-28", "done", "T-002"); code == 0 {
-		t.Error("повторный done должен завершиться ошибкой")
+		t.Error("a second done must fail")
 	}
 }
 
@@ -320,47 +320,47 @@ func TestDeferMovesDeadlineAndCounts(t *testing.T) {
 	w.seed(t)
 
 	out := w.mustRun(t, "--today=2026-08-27", "defer", "T-002", "--due=2026-09-10")
-	if !strings.Contains(out, "2026-09-10") || !strings.Contains(out, "переносов: 1") {
-		t.Errorf("defer не отчитался о переносе: %q", out)
+	if !strings.Contains(out, "2026-09-10") || !strings.Contains(out, "deferrals: 1") {
+		t.Errorf("defer did not report the deferral: %q", out)
 	}
 
 	w.mustRun(t, "--today=2026-08-27", "defer", "T-002", "--due=2026-09-20")
 	artifact := w.read(t, w.artifact)
-	if !strings.Contains(artifact, "срок:2026-09-20") || !strings.Contains(artifact, "переносов:2") {
-		t.Errorf("второй перенос не записан:\n%s", artifact)
+	if !strings.Contains(artifact, "due:2026-09-20") || !strings.Contains(artifact, "deferrals:2") {
+		t.Errorf("second deferral not written:\n%s", artifact)
 	}
 
-	// Двигать срок назад — не перенос, а опечатка.
+	// Moving a deadline backwards is a typo, not a deferral.
 	if _, _, code := w.run(t, "--today=2026-08-27", "defer", "T-002", "--due=2026-09-01"); code == 0 {
-		t.Error("перенос на более раннюю дату должен завершиться ошибкой")
+		t.Error("deferring to an earlier date must fail")
 	}
 }
 
 func TestCheckReportsIncompleteAndSucceeds(t *testing.T) {
 	w := newWorkspace(t)
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Критично без срока", "--tier=1",
-		"--from=Босс", "--section=Работа")
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=Critical without a deadline", "--tier=1",
+		"--from=The boss", "--section=Work")
 
 	out := w.mustRun(t, "--today=2026-08-27", "check")
-	if !strings.Contains(out, "Артефакт читается") {
-		t.Errorf("check не отчитался: %q", out)
+	if !strings.Contains(out, "Artifact parses") {
+		t.Errorf("check did not report: %q", out)
 	}
-	if !strings.Contains(out, "Неполные данные: T-001") {
-		t.Errorf("check не заметил тир-1 без срока: %q", out)
+	if !strings.Contains(out, "Incomplete data: T-001") {
+		t.Errorf("check missed a tier-1 without a deadline: %q", out)
 	}
 }
 
 func TestCheckFailsOnUnparsableArtifact(t *testing.T) {
 	w := newWorkspace(t)
-	// Задача вне раздела: файл не разбирается.
-	w.write(t, w.artifact, "# Обязанности\n\n- [ ] `T-001` **Ничья задача**\n  тир:2 · от:себя\n")
+	// A task outside any section: the file does not parse.
+	w.write(t, w.artifact, "# Duties\n\n- [ ] `T-001` **Nobody's task**\n  tier:2 · from:self\n")
 
 	_, stderr, code := w.run(t, "--today=2026-08-27", "check")
 	if code == 0 {
-		t.Fatalf("check на битом артефакте должен вернуть ненулевой код, stderr: %q", stderr)
+		t.Fatalf("check on a broken artifact must return non-zero, stderr: %q", stderr)
 	}
 	if !strings.Contains(stderr, "secretary:") {
-		t.Errorf("ошибка без объяснения: %q", stderr)
+		t.Errorf("error without an explanation: %q", stderr)
 	}
 }
 
@@ -374,7 +374,7 @@ func TestFmtIsIdempotentAfterAdd(t *testing.T) {
 	second := w.read(t, w.artifact)
 
 	if first != second {
-		t.Errorf("fmt не идемпотентен:\n--- первый ---\n%s\n--- второй ---\n%s", first, second)
+		t.Errorf("fmt is not idempotent:\n--- first ---\n%s\n--- second ---\n%s", first, second)
 	}
 }
 
@@ -384,13 +384,13 @@ func TestFmtPreservesHandEdits(t *testing.T) {
 	w.mustRun(t, "--today=2026-08-27", "fmt")
 
 	before := w.read(t, w.artifact)
-	// Ручная правка: чужая подсказка и лишние пустые строки.
-	edited := strings.Replace(before, "## Личное", "\n\n## Личное", 1)
+	// A hand edit: a foreign hint and extra blank lines.
+	edited := strings.Replace(before, "## Personal", "\n\n## Personal", 1)
 	w.write(t, w.artifact, edited)
 
 	w.mustRun(t, "--today=2026-08-27", "fmt")
 	if after := w.read(t, w.artifact); after != before {
-		t.Errorf("ручная правка потеряла данные:\n--- было ---\n%s\n--- стало ---\n%s", before, after)
+		t.Errorf("the hand edit lost data:\n--- before ---\n%s\n--- after ---\n%s", before, after)
 	}
 }
 
@@ -401,21 +401,21 @@ func TestArchiveMovesOldDoneTasks(t *testing.T) {
 	w.mustRun(t, "--today=2026-10-01", "done", "T-003")
 
 	out := w.mustRun(t, "--today=2026-10-05", "archive")
-	if !strings.Contains(out, "Перенесено в архив") {
-		t.Fatalf("archive ничего не перенёс: %q", out)
+	if !strings.Contains(out, "Archived") {
+		t.Fatalf("archive moved nothing: %q", out)
 	}
 
 	artifact := w.read(t, w.artifact)
 	if strings.Contains(artifact, "`T-002`") {
-		t.Errorf("старая выполненная задача осталась в артефакте:\n%s", artifact)
+		t.Errorf("an old completed task stayed in the artifact:\n%s", artifact)
 	}
 	if !strings.Contains(artifact, "`T-003`") {
-		t.Errorf("свежая выполненная задача не должна уезжать в архив:\n%s", artifact)
+		t.Errorf("a fresh completed task must not go to the archive:\n%s", artifact)
 	}
 
 	archive := w.read(t, w.archive)
-	if !strings.Contains(archive, "`T-002`") || !strings.Contains(archive, "## Сделано") {
-		t.Errorf("архив не получил задачу:\n%s", archive)
+	if !strings.Contains(archive, "`T-002`") || !strings.Contains(archive, "## Done") {
+		t.Errorf("the archive did not receive the task:\n%s", archive)
 	}
 }
 
@@ -424,11 +424,11 @@ func TestArchiveWithNothingToMove(t *testing.T) {
 	w.seed(t)
 
 	out := w.mustRun(t, "--today=2026-08-27", "archive")
-	if !strings.Contains(out, "нечего") {
-		t.Errorf("archive должен сказать, что переносить нечего: %q", out)
+	if !strings.Contains(out, "Nothing to archive") {
+		t.Errorf("archive must say there is nothing to move: %q", out)
 	}
 	if _, err := os.Stat(w.archive); err == nil {
-		t.Error("archive не должен создавать файл, когда переносить нечего")
+		t.Error("archive must not create a file when there is nothing to move")
 	}
 }
 
@@ -439,37 +439,37 @@ func TestErrorPaths(t *testing.T) {
 		// broken seeds an artifact that does not parse.
 		broken bool
 	}{
-		{name: "нет команды", args: []string{}},
-		{name: "неизвестная команда", args: []string{"погладить-кота"}},
-		{name: "add без title", args: []string{"add", "--tier=2"}},
-		{name: "add с неизвестным разделом", args: []string{"add", "--title=Х", "--tier=2", "--section=Хобби"}},
-		{name: "add с чужим тиром", args: []string{"add", "--title=Х", "--tier=7"}},
-		{name: "add с битой датой", args: []string{"add", "--title=Х", "--due=завтра"}},
-		{name: "add с битым объёмом", args: []string{"add", "--title=Х", "--effort=пять"}},
-		{name: "done без идентификатора", args: []string{"done"}},
-		{name: "done с неизвестным id", args: []string{"done", "T-999"}},
-		{name: "defer без --due", args: []string{"defer", "T-001"}},
-		{name: "defer с неизвестным id", args: []string{"defer", "T-999", "--due=2026-12-01"}},
-		{name: "неизвестный флаг", args: []string{"brief", "--громко"}},
-		{name: "битый --today", args: []string{"brief", "--today=вчера"}},
-		{name: "битый артефакт", args: []string{"brief"}, broken: true},
+		{name: "no command", args: []string{}},
+		{name: "unknown command", args: []string{"pet-the-cat"}},
+		{name: "add without title", args: []string{"add", "--tier=2"}},
+		{name: "add with an unknown section", args: []string{"add", "--title=X", "--tier=2", "--section=Hobbies"}},
+		{name: "add with a foreign tier", args: []string{"add", "--title=X", "--tier=7"}},
+		{name: "add with a broken date", args: []string{"add", "--title=X", "--due=tomorrow"}},
+		{name: "add with a broken effort", args: []string{"add", "--title=X", "--effort=five"}},
+		{name: "done without an identifier", args: []string{"done"}},
+		{name: "done with an unknown id", args: []string{"done", "T-999"}},
+		{name: "defer without --due", args: []string{"defer", "T-001"}},
+		{name: "defer with an unknown id", args: []string{"defer", "T-999", "--due=2026-12-01"}},
+		{name: "unknown flag", args: []string{"brief", "--loudly"}},
+		{name: "broken --today", args: []string{"brief", "--today=yesterday"}},
+		{name: "broken artifact", args: []string{"brief"}, broken: true},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			w := newWorkspace(t)
 			if tc.broken {
-				w.write(t, w.artifact, "# Обязанности\n\n## Работа\n\n- [ ] `T-001` **Задача**\n  тир:девять · от:себя\n")
+				w.write(t, w.artifact, "# Duties\n\n## Work\n\n- [ ] `T-001` **Task**\n  tier:nine · from:self\n")
 			} else {
-				w.mustRun(t, "--today=2026-08-27", "add", "--title=Опорная задача", "--tier=2", "--section=Личное")
+				w.mustRun(t, "--today=2026-08-27", "add", "--title=Anchor task", "--tier=2", "--section=Personal")
 			}
 
 			_, stderr, code := w.run(t, tc.args...)
 			if code == 0 {
-				t.Fatalf("%v должно завершаться ненулевым кодом", tc.args)
+				t.Fatalf("%v must exit non-zero", tc.args)
 			}
 			if strings.TrimSpace(stderr) == "" {
-				t.Errorf("%v завершилось молча", tc.args)
+				t.Errorf("%v exited silently", tc.args)
 			}
 		})
 	}
@@ -477,18 +477,18 @@ func TestErrorPaths(t *testing.T) {
 
 func TestGlobalFlagsWorkBeforeAndAfterSubcommand(t *testing.T) {
 	w := newWorkspace(t)
-	other := filepath.Join(w.dir, "другое.md")
+	other := filepath.Join(w.dir, "other.md")
 
-	w.mustRun(t, "--artifact="+other, "--today=2026-08-27", "add", "--title=В другой файл", "--tier=2", "--section=Личное")
-	w.mustRun(t, "add", "--artifact="+other, "--today=2026-08-27", "--title=И ещё одна", "--tier=2", "--section=Личное")
+	w.mustRun(t, "--artifact="+other, "--today=2026-08-27", "add", "--title=Into another file", "--tier=2", "--section=Personal")
+	w.mustRun(t, "add", "--artifact="+other, "--today=2026-08-27", "--title=And one more", "--tier=2", "--section=Personal")
 
 	if _, err := os.Stat(w.artifact); err == nil {
-		t.Error("--artifact проигнорирован: записан файл по умолчанию")
+		t.Error("--artifact ignored: the default file was written")
 	}
 	content := w.read(t, other)
 	for _, want := range []string{"`T-001`", "`T-002`"} {
 		if !strings.Contains(content, want) {
-			t.Errorf("в %s нет %q:\n%s", other, want, content)
+			t.Errorf("%s lacks %q:\n%s", other, want, content)
 		}
 	}
 }
@@ -499,9 +499,45 @@ func TestMissingConfigFallsBackToDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	w.mustRun(t, "--today=2026-08-27", "add", "--title=Без конфигурации", "--tier=2", "--section=Личное")
-	// Артефакт по умолчанию — docs/duties.md относительно рабочего каталога.
+	w.mustRun(t, "--today=2026-08-27", "add", "--title=No configuration", "--tier=2", "--section=Personal")
+	// The default artifact is docs/duties.md relative to the working directory.
 	if _, err := os.Stat(filepath.Join(w.dir, "docs", "duties.md")); err != nil {
-		t.Fatalf("без конфигурации артефакт не создан по умолчанию: %v", err)
+		t.Fatalf("without a configuration the default artifact was not created: %v", err)
+	}
+}
+
+// TestHomeEnv checks that SECRETARY_HOME moves the configuration and the
+// artifact out of the working directory: the way a private installation keeps
+// its real duties away from a checkout of the repository.
+func TestHomeEnv(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv(homeEnv, home)
+	if err := os.WriteFile(filepath.Join(home, "secretary.yml"), []byte("artifact: duties.md\narchive: archive.md\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr strings.Builder
+	if code := run([]string{"--today=2026-08-27", "add", "--title=At home", "--tier=2", "--section=Personal"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("add under %s: exit code %d, stderr: %s", homeEnv, code, stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(home, "duties.md"))
+	if err != nil {
+		t.Fatalf("artifact not created under %s: %v", homeEnv, err)
+	}
+	if !strings.Contains(string(data), "At home") {
+		t.Errorf("artifact under %s lacks the duty:\n%s", homeEnv, data)
+	}
+	if _, err := os.Stat("duties.md"); err == nil {
+		t.Error("the artifact was also written into the working directory")
+	}
+
+	// An explicit --artifact is relative to the working directory, not home.
+	other := filepath.Join(t.TempDir(), "other.md")
+	stdout.Reset()
+	if code := run([]string{"--artifact=" + other, "--today=2026-08-27", "add", "--title=Elsewhere", "--tier=2", "--section=Personal"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("add with --artifact: exit code %d, stderr: %s", code, stderr.String())
+	}
+	if _, err := os.Stat(other); err != nil {
+		t.Errorf("--artifact ignored under %s: %v", homeEnv, err)
 	}
 }

@@ -31,30 +31,30 @@ const (
 func (s Status) String() string {
 	switch s {
 	case StatusNoDue:
-		return "без срока"
+		return "no deadline"
 	case StatusCalm:
-		return "спокойно"
+		return "on track"
 	case StatusSoon:
-		return "скоро"
+		return "soon"
 	case StatusStartNow:
-		return "пора начинать"
+		return "start now"
 	case StatusOverdue:
-		return "просрочено"
+		return "overdue"
 	default:
-		return "неизвестно"
+		return "unknown"
 	}
 }
 
-// SelfAssigned is the value of `от:` for a duty nobody else handed you. The
-// grouping package skips it: "раз уж вы говорите с собой" is not a useful hint.
-const SelfAssigned = "себя"
+// SelfAssigned is the value of `from:` for a duty nobody else handed you. The
+// grouping package skips it: "while you are talking to yourself" is not a useful hint.
+const SelfAssigned = "self"
 
 // Validation failures, one per rule, so callers can tell them apart.
 var (
-	ErrInvalidID   = errors.New("некорректный идентификатор")
-	ErrInvalidTier = errors.New("некорректный тир")
-	ErrEmptyTitle  = errors.New("пустое название")
-	ErrEmptyFrom   = errors.New("не указано, от кого задача")
+	ErrInvalidID   = errors.New("invalid identifier")
+	ErrInvalidTier = errors.New("invalid tier")
+	ErrEmptyTitle  = errors.New("empty title")
+	ErrEmptyFrom   = errors.New("missing who the duty is from")
 )
 
 // idPattern matches the `T-001` form assigned by the store.
@@ -71,7 +71,7 @@ type Task struct {
 	Section string
 	Tier    int
 	From    string
-	// Due is the `срок:`. Absent means the task has no deadline at all, which
+	// Due is the `due:`. Absent means the task has no deadline at all, which
 	// is a status of its own rather than an infinitely distant one.
 	Due     *time.Time
 	Effort  Effort
@@ -93,13 +93,13 @@ type Task struct {
 // id, a tier in range, and the two fields a duty is meaningless without.
 func (t Task) Validate() error {
 	if !idPattern.MatchString(t.ID) {
-		return fmt.Errorf("%w %q: ожидается T-NNN", ErrInvalidID, t.ID)
+		return fmt.Errorf("%w %q: expected T-NNN", ErrInvalidID, t.ID)
 	}
 	if t.Tier < MinTier || t.Tier > MaxTier {
-		return fmt.Errorf("%w %d в задаче %s: ожидается 1..3", ErrInvalidTier, t.Tier, t.ID)
+		return fmt.Errorf("%w %d in task %s: expected 1..3", ErrInvalidTier, t.Tier, t.ID)
 	}
 	if strings.TrimSpace(t.Title) == "" {
-		return fmt.Errorf("%w в задаче %s", ErrEmptyTitle, t.ID)
+		return fmt.Errorf("%w in task %s", ErrEmptyTitle, t.ID)
 	}
 	if strings.TrimSpace(t.From) == "" {
 		return fmt.Errorf("%w %s", ErrEmptyFrom, t.ID)
@@ -117,7 +117,7 @@ const (
 	MaxTier = 3
 )
 
-// Step is one checkbox inside a duty: «позвонить», «отвезти вещи». Steps are
+// Step is one checkbox inside a duty: «call them», «drive the boxes over». Steps are
 // the parts of a single errand, not duties in their own right — they have no
 // identifier and no effort, and they never appear in a brief on their own.
 //

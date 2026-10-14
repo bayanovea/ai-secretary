@@ -15,7 +15,7 @@ import (
 // updateGolden rewrites the expected files instead of comparing against them.
 // Run `go test ./internal/mdstore -update` after an intentional format change and read the
 // diff: the golden files are how the artifact format is reviewed.
-var updateGolden = flag.Bool("update", false, "перезаписать эталонные файлы в testdata/golden")
+var updateGolden = flag.Bool("update", false, "rewrite the golden files in testdata/golden")
 
 // goldenPath locates a golden file by its base name.
 func goldenPath(name string) string {
@@ -30,19 +30,19 @@ func assertGolden(t *testing.T, name, got string) {
 
 	if *updateGolden {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("создать %s: %v", filepath.Dir(path), err)
+			t.Fatalf("create %s: %v", filepath.Dir(path), err)
 		}
 		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
-			t.Fatalf("записать %s: %v", path, err)
+			t.Fatalf("write %s: %v", path, err)
 		}
 		return
 	}
 
 	want, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("прочитать %s: %v (перегенерируйте: go test ./internal/mdstore -update)", path, err)
+		t.Fatalf("read %s: %v (regenerate: go test ./internal/mdstore -update)", path, err)
 	}
 	if got != string(want) {
-		t.Errorf("вывод не совпадает с %s\n--- получено ---\n%s\n--- ожидалось ---\n%s", path, got, want)
+		t.Errorf("output differs from %s\n--- got ---\n%s\n--- want ---\n%s", path, got, want)
 	}
 }

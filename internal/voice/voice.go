@@ -23,7 +23,7 @@ import (
 )
 
 // ErrUnknownPersona is returned by Get for a name nobody implements.
-var ErrUnknownPersona = fmt.Errorf("неизвестная персона")
+var ErrUnknownPersona = fmt.Errorf("unknown persona")
 
 // Persona is everything the briefing needs said out loud.
 //
@@ -59,11 +59,11 @@ var personas = map[string]func() Persona{
 func Get(name string) (Persona, error) {
 	key := strings.ToLower(strings.TrimSpace(name))
 	if key == "" {
-		return nil, fmt.Errorf("%w: имя не указано (доступны: %s)", ErrUnknownPersona, strings.Join(Names(), ", "))
+		return nil, fmt.Errorf("%w: no name given (available: %s)", ErrUnknownPersona, strings.Join(Names(), ", "))
 	}
 	build, ok := personas[key]
 	if !ok {
-		return nil, fmt.Errorf("%w %q (доступны: %s)", ErrUnknownPersona, name, strings.Join(Names(), ", "))
+		return nil, fmt.Errorf("%w %q (available: %s)", ErrUnknownPersona, name, strings.Join(Names(), ", "))
 	}
 	return build(), nil
 }

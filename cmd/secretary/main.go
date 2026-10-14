@@ -2,8 +2,8 @@
 // them need attention today.
 //
 // The binary is deliberately thin: every decision it makes lives in one of the
-// internal packages, and everything fuzzy — turning «надо до пятницы отдать
-// документы» into flags — happens before it, in the Claude Code skill. What is
+// internal packages, and everything fuzzy — turning «hand the papers to the
+// notary by Friday» into flags — happens before it, in the Claude Code skill. What is
 // left here is argument parsing, one load/mutate/save cycle per subcommand, and
 // the exit code.
 //
@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,9 +41,15 @@ const (
 // defaults — so the binary works in a fresh directory.
 const defaultConfigPath = "secretary.yml"
 
+// homeEnv names the directory a private installation keeps its configuration
+// and artifact in, so the binary can run from any directory without flags.
+// Unset, the current directory is the home — which is what makes a checkout
+// of this repository a working example.
+const homeEnv = "SECRETARY_HOME"
+
 // errUsage marks a failure that is about how the command was called rather than
 // about the duties themselves.
-var errUsage = errors.New("неверный вызов")
+var errUsage = errors.New("invalid usage")
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -51,6 +58,10 @@ func main() {
 // run is main with its I/O and its exit code made testable.
 func run(args []string, stdout, stderr io.Writer) int {
 	g := globals{Config: defaultConfigPath}
+	if home := strings.TrimSpace(os.Getenv(homeEnv)); home != "" {
+		g.Home = home
+		g.Config = filepath.Join(home, defaultConfigPath)
+	}
 
 	root := newFlagSet("secretary", stderr)
 	g.register(root)
@@ -67,7 +78,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	cmd := lookup(rest[0])
 	if cmd == nil {
-		fmt.Fprintf(stderr, "secretary: неизвестная команда %q\n\n", rest[0])
+		fmt.Fprintf(stderr, "secretary: unknown command %q\n\n", rest[0])
 		usage(stderr)
 		return exitUsage
 	}
@@ -136,6 +147,10 @@ func newFlagSet(name string, stderr io.Writer) *flag.FlagSet {
 type globals struct {
 	Config   string
 	Artifact string
+	// Home is the directory relative paths in the configuration resolve
+	// against. Empty means the current directory, as a config file read by
+	// hand would expect.
+	Home string
 	// Today overrides the clock. It is deliberately absent from the usage text:
 	// it exists so that tests — and a future cron job replaying a day — are
 	// deterministic, not as something to reach for by hand.
@@ -145,8 +160,8 @@ type globals struct {
 // register adds the global flags to fs, taking the current values as defaults
 // so that a second registration preserves what the first one parsed.
 func (g *globals) register(fs *flag.FlagSet) {
-	fs.StringVar(&g.Config, "config", g.Config, "путь к secretary.yml")
-	fs.StringVar(&g.Artifact, "artifact", g.Artifact, "путь к артефакту (по умолчанию из конфигурации)")
+	fs.StringVar(&g.Config, "config", g.Config, "path to secretary.yml")
+	fs.StringVar(&g.Artifact, "artifact", g.Artifact, "path to the artifact (default from the configuration)")
 	fs.StringVar(&g.Today, "today", g.Today, "")
 }
 
@@ -165,9 +180,20 @@ func (g globals) app(stdout io.Writer) (*app, error) {
 
 	path := g.Artifact
 	if path == "" {
-		path = cfg.Artifact
+		path = g.resolve(cfg.Artifact)
 	}
+	cfg.Archive = g.resolve(cfg.Archive)
 	return &app{cfg: cfg, store: mdstore.NewStore(path, cfg), now: now, out: stdout}, nil
+}
+
+// resolve anchors a relative path from the configuration at the home directory.
+// An explicit `--artifact` never passes through here: a path typed on the
+// command line is relative to where it was typed.
+func (g globals) resolve(path string) string {
+	if g.Home == "" || path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(g.Home, path)
 }
 
 // resolveToday reads the `--today` flag, falling back to the real clock. Either
@@ -179,7 +205,7 @@ func resolveToday(value string) (time.Time, error) {
 	}
 	t, err := time.Parse(mdstore.DateLayout, strings.TrimSpace(value))
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%w: --today %q: ожидается ГГГГ-ММ-ДД", errUsage, value)
+		return time.Time{}, fmt.Errorf("%w: --today %q: expected YYYY-MM-DD", errUsage, value)
 	}
 	return day(t), nil
 }
@@ -223,7 +249,7 @@ func (a *app) printf(format string, args ...interface{}) {
 // commandUsage is one subcommand's help. It walks the flag set rather than
 // calling PrintDefaults so that `--today` stays out of the listing.
 func commandUsage(w io.Writer, c command, fs *flag.FlagSet) {
-	fmt.Fprintf(w, "secretary %s — %s\n\nФлаги:\n", c.name(), c.summary())
+	fmt.Fprintf(w, "secretary %s — %s\n\nFlags:\n", c.name(), c.summary())
 	fs.VisitAll(func(f *flag.Flag) {
 		if f.Usage == "" {
 			return
@@ -234,19 +260,19 @@ func commandUsage(w io.Writer, c command, fs *flag.FlagSet) {
 
 // usage is the help text. It lists the documented flags only.
 func usage(w io.Writer) {
-	fmt.Fprint(w, `secretary — секретарь, который помнит ваши обязанности.
+	fmt.Fprint(w, `secretary — a secretary who remembers your duties.
 
-Использование:
-  secretary [глобальные флаги] <команда> [флаги команды]
+Usage:
+  secretary [global flags] <command> [command flags]
 
-Команды:
+Commands:
 `)
 	for _, c := range commands() {
 		fmt.Fprintf(w, "  %-9s %s\n", c.name(), c.summary())
 	}
 	fmt.Fprint(w, `
-Глобальные флаги:
-  --config PATH     путь к secretary.yml (по умолчанию secretary.yml)
-  --artifact PATH   путь к артефакту (по умолчанию из конфигурации)
+Global flags:
+  --config PATH     path to secretary.yml (default secretary.yml)
+  --artifact PATH   path to the artifact (default from the configuration)
 `)
 }

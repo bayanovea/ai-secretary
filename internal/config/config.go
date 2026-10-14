@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Tier bounds. Tier 1 is критично, tier 3 is фоновое.
+// Tier bounds. Tier 1 is critical, tier 3 is background.
 const (
 	MinTier = 1
 	MaxTier = 3
@@ -29,7 +29,7 @@ const (
 
 // TierConfig describes how much slack a tier gets before its latest start date.
 //
-// The buffer is max(BufferMinDays, BufferRatio * объём), so a tier-1 task that
+// The buffer is max(BufferMinDays, BufferRatio * effort), so a tier-1 task that
 // takes ten days gets five days of buffer while a one-hour one still gets two.
 type TierConfig struct {
 	Name          string  `yaml:"name"`
@@ -57,12 +57,12 @@ func Default() *Config {
 		Persona:  DefaultPersona,
 		Artifact: DefaultArtifact,
 		Archive:  DefaultArchive,
-		Sections: []string{"Работа", "Личное", "Дом", "Здоровье", "Отношения", "Финансы"},
-		Contexts: []string{"@город", "@дом", "@телефон", "@компьютер", "@работа"},
+		Sections: []string{"Work", "Personal", "Home", "Health", "Relationships", "Finance"},
+		Contexts: []string{"@town", "@home", "@phone", "@computer", "@work"},
 		Tiers: map[string]TierConfig{
-			"1": {Name: "Критично", BufferMinDays: 2, BufferRatio: 0.5},
-			"2": {Name: "Важно", BufferMinDays: 1, BufferRatio: 0.25},
-			"3": {Name: "Фоновое", BufferMinDays: 0, BufferRatio: 0},
+			"1": {Name: "Critical", BufferMinDays: 2, BufferRatio: 0.5},
+			"2": {Name: "Important", BufferMinDays: 1, BufferRatio: 0.25},
+			"3": {Name: "Background", BufferMinDays: 0, BufferRatio: 0},
 		},
 		SoonWindowDays: DefaultSoonWindowDays,
 		StaleDays:      DefaultStaleDays,
